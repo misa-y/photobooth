@@ -32,5 +32,3 @@ def startCamera():
     cap.release()
     cv2.destroyAllWindows()
 
-
-startCamera()
