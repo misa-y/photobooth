@@ -1,7 +1,7 @@
 # Interactive Photo Booth for School Events
 An real-time webcame interactive AI-powered photobooth for school events that captures photos, applies visual effects, and generates downloadable photostrips.
 
-##Features
+## Features
 - Live Preview of your Webcam Feed
 - Timed Photo Capture
 - Photo Previews
@@ -11,7 +11,7 @@ An real-time webcame interactive AI-powered photobooth for school events that ca
 - Gesture-Triggered Effects
 - Photostrip Generation
 
-##Roadmap
+## Roadmap
 Pre-Project
 Goal: Research on the necessary skills needed to start. (like finding tools, e.g., open source libraries, etc.)
 Include…
@@ -48,5 +48,5 @@ Include..
 - Explore running the system on embedded platforms (Raspberry Pi)
 - Optimize performance for real-time, public-facing use
 
-##Project Status
+## Project Status
 The project is currently transitioning from the Pre-Project phase into Core Photobooth Functionality. I am working on using openCV to start the main photobooth functions, like accessing live-web cam feed and having the camera orientation be that of like a real photobooth (selfie mode).
