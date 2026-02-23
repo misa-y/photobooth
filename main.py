@@ -1,34 +1,59 @@
-import cv2  # OpenCV library for accessing camera and image processing
+import cv2
+import time
 
 def startCamera():
-    """
-   startCamera function to run the webcam feed.
-   Opens the default camera, and handles quitting. 
-    """
+    video = cv2.VideoCapture(0)
+    photo_count = 0 #total number of photostrips
 
-    cap = cv2.VideoCapture(0) # 0 is the defaul cam, usually the built-in webcam
-
-    # Check if the webcam is opened correctly, exits if not
-    if not cap.isOpened():
-        print("Cannot open camera")
+    if not video.isOpened():
+        print("Error Opening the Camera")
         return
 
-    # Main loop to continuously capture frames from the webcam
-    while True: 
-        ret, frame = cap.read()
+    while True:
+        ret, frame = video.read()
+        frame = cv2.flip(frame,1)
 
-        if not ret:
-            print("Failed to receive frame")
+        cv2.imshow("ASIJ Photobooth", frame)
+
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('p'):
+            countdown(video)
+            captureImages(video)
+            photo_count+=1
+
+            print(photo_count)
+        elif key == ord('q'):
             break
-
-        frame = cv2.flip(frame, 1) # to mirror horizontally (selfie view, desired camera orientation)
-        cv2.imshow("ASIJ Photobooth", frame) # Displays the frame in a window named "ASIJ Photobooth"
-
-        # exits when "q" is pressed
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break 
-
-    # When everything done, release the capture and close windows
-    cap.release()
+   
+    video.release()
     cv2.destroyAllWindows()
 
+def captureImages(video):
+    for i in range (4):
+                start_time= time.time()
+              
+                while time.time() - start_time < 7: 
+                    ret, frame = video.read()
+                    frame = cv2.flip(frame, 1)
+                    cv2.imshow("ASIJ Photobooth", frame)
+                    cv2.waitKey(1)
+
+                # take photo
+                ret, frame = video.read()
+                frame = cv2.flip(frame, 1)
+                timestamp = time.strftime("%Y%m%d%H%M%S")
+                filename = f"photo_{timestamp}.png"
+                cv2.imwrite(filename, frame)
+
+                print (f"Saved {filename}")
+
+startCamera()
+
+
+
+
+
+
+
+
+ 
