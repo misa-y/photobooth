@@ -15,9 +15,11 @@ def startCamera():
 
         cv2.imshow("ASIJ Photobooth", frame)
 
+        cv2.createButton("Start", captureImages(video))
+                         
         key = cv2.waitKey(1) & 0xFF
         if key == ord('p'):
-            countdown(video)
+            #countdown(video)
             captureImages(video)
             photo_count+=1
 
@@ -46,6 +48,8 @@ def captureImages(video):
                 cv2.imwrite(filename, frame)
 
                 print (f"Saved {filename}")
+
+
 
 startCamera()
 
