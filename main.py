@@ -1,28 +1,45 @@
 import cv2
 import time
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel
+
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton
+from PyQt6.QtGui import QImage
+
 import sys
+
+class Window(QWidget):
+    def __init__(window):
+        super().__init__()
+
+        window.setWindowTitle("ASIJ Photobooth")
+        
+        layout = QVBoxLayout()
+        window.setLayout(layout)
+        window.resize(1000,600)   
+        
+        label = QLabel("Welcome")
+        layout.addWidget(label)
+
+        window.button = QPushButton("Start", window)
+        window.button.clicked.connect(window.clicked)
+        layout.addWidget(window.button)
+
+    def clicked(window):
+        window.button.setText("camera loading...")
+        window.button.setEnabled(False)
+        
+        startCamera()
+
+        #enable button again after taking the pics
+        window.button.setEnabled(True)
+        window.button.setText("Start")
 
 def main():
      app = QApplication(sys.argv)
-
-     window = QWidget()
-     window.setWindowTitle("ASIJ Photobooth")
-     
-     layout = QVBoxLayout()
-     label = QLabel("Welcome")
-     
-     layout.addWidget(label)
-     window.setLayout(layout)
-     window.resize(300,150)
-     
+     window = Window()
      window.show()
      sys.exit(app.exec())
 
-
-
-     #startCamera()
-
+    
 def startCamera():
     video = cv2.VideoCapture(0)
     photo_count = 0 #total number of photostrips
@@ -36,11 +53,9 @@ def startCamera():
         frame = cv2.flip(frame,1)
 
         cv2.imshow("ASIJ Photobooth", frame)
-
-        cv2.createButton("Start", onChange=onChange)
                          
         key = cv2.waitKey(1) & 0xFF
-        if key == ord('l'):
+        if key == ord('p'):
             #countdown(video)
             captureImages(video)
             photo_count+=1
@@ -71,10 +86,6 @@ def captureImages(video):
                 cv2.imwrite(filename, frame)
 
                 print (f"Saved {filename}")
-
-def onChange():
-     print ("hi")
-
 
 #run
 if __name__ == "__main__":
