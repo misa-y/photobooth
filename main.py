@@ -4,19 +4,21 @@ import sys
 
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton
 from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QTimer, Qt
 
 class Window(QWidget):
     def __init__(window):
         super().__init__()
 
+        window.photo_count = 0 #total number of photostrips
+        window.captureIndex = 0 #number of photos taken in current photostrip
         window.setWindowTitle("ASIJ Photobooth")
         
         window.layout = QVBoxLayout()
         window.setLayout(window.layout)
         window.resize(1000,600)   
         
-        label = QLabel("Welcome")
+        label = QLabel("Welcome to ASIJ Photobooth")
         window.layout.addWidget(label)
 
         window.button = QPushButton("Start", window)
@@ -30,21 +32,48 @@ class Window(QWidget):
         window.layout.addWidget(window.imageLabel)
 
     def cameraLoop(window):
-        ret, frame = window.video.read()
-        frame = cv2.flip(frame,1)
+        ret, window.frame = window.video.read()
+        window.frame = cv2.flip(window.frame,1)
 
-        height, width, channels = frame.shape
-        image = QImage(frame.data, width, height, QImage.Format.Format_BGR888)
+        height, width, channels = window.frame.shape
+        image = QImage(window.frame.data, width, height, QImage.Format.Format_BGR888)
 
         pixmap = QPixmap.fromImage(image)
         window.imageLabel.setPixmap(pixmap)
+   
+    def keyPressEvent(window, event):
+        if event.key() == Qt.Key.Key_P:
+            window.captureIndex = 0 #reset capture index for new photostrip
+            window.captureImages()
         
+        elif event.key() == Qt.Key.Key_Q:
+            window.timer.stop()
+            window.video.release()
+            window.close()
+            exit
 
     def clicked(window):
         window.button.setText("camera loading...")
         window.button.setEnabled(False)
         
         startCamera(window)
+
+    def captureImages(window):
+        timestamp = time.strftime("%Y%m%d%H%M%S")
+        filename = f"photo_{timestamp}.png"
+        cv2.imwrite(filename, window.frame)
+        print (f"Saved {filename}")
+
+        window.captureIndex += 1 
+
+        if window.captureIndex < 4:
+            QTimer.singleShot(7000, window.captureImage)
+        elif window.captureIndex == 4:
+            print ("Done capturing photos")
+            window.captureIndex = 0
+            window.photo_count+=1
+            print(f"Current # of Photo Strips: {window.photo_count}")
+            return
 
 def main():
      app = QApplication(sys.argv)
@@ -54,44 +83,36 @@ def main():
 
 def startCamera(window):
      window.video = cv2.VideoCapture(0)
-     photo_count = 0 #total number of photostrips
-
      window.timer.start (30) #update every 30ms
 
      if not window.video.isOpened():
         print("Error Opening the Camera")
         return
 
-def captureImages(video):
-    for i in range (4):
-                start_time= time.time()
-              
-                while time.time() - start_time < 2: 
-                    ret, frame = video.read()
-                    frame = cv2.flip(frame, 1)
-                    cv2.imshow("ASIJ Photobooth", frame)
-                    cv2.waitKey(1)
-
-                # take photo
-                ret, frame = video.read()
-                frame = cv2.flip(frame, 1)
-                timestamp = time.strftime("%Y%m%d%H%M%S")
-                filename = f"photo_{timestamp}.png"
-                cv2.imwrite(filename, frame)
-
-                print (f"Saved {filename}")
-
 #run
 if __name__ == "__main__":
     main()
 
+ # def captureImages(video):
+    # for i in range (4):
+    #             start_time= time.time()
+              
+    #             while time.time() - start_time < 2: 
+    #                 ret, frame = video.read()
+    #                 frame = cv2.flip(frame, 1)
+    #                 cv2.imshow("ASIJ Photobooth", frame)
+    #                 cv2.waitKey(1)
+
+#                 # take photo
+#                 ret, frame = video.read()
+#                 frame = cv2.flip(frame, 1)
+#                 timestamp = time.strftime("%Y%m%d%H%M%S")
+#                 filename = f"photo_{timestamp}.png"
+#                 cv2.imwrite(filename, frame)
+
+#                 print (f"Saved {filename}")
 
 
-
-
-
-
- 
 
  # def startCamera():
 #     video = cv2.VideoCapture(0)
