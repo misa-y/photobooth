@@ -1,10 +1,10 @@
 import cv2
 import time
+import sys
 
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton
-from PyQt6.QtGui import QImage
-
-import sys
+from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtCore import QTimer
 
 class Window(QWidget):
     def __init__(window):
@@ -12,26 +12,39 @@ class Window(QWidget):
 
         window.setWindowTitle("ASIJ Photobooth")
         
-        layout = QVBoxLayout()
-        window.setLayout(layout)
+        window.layout = QVBoxLayout()
+        window.setLayout(window.layout)
         window.resize(1000,600)   
         
         label = QLabel("Welcome")
-        layout.addWidget(label)
+        window.layout.addWidget(label)
 
         window.button = QPushButton("Start", window)
         window.button.clicked.connect(window.clicked)
-        layout.addWidget(window.button)
+        window.layout.addWidget(window.button)
+
+        window.timer = QTimer()
+        window.timer.timeout.connect(window.cameraLoop)
+        
+        window.imageLabel = QLabel()
+        window.layout.addWidget(window.imageLabel)
+
+    def cameraLoop(window):
+        ret, frame = window.video.read()
+        frame = cv2.flip(frame,1)
+
+        height, width, channels = frame.shape
+        image = QImage(frame.data, width, height, QImage.Format.Format_BGR888)
+
+        pixmap = QPixmap.fromImage(image)
+        window.imageLabel.setPixmap(pixmap)
+        
 
     def clicked(window):
         window.button.setText("camera loading...")
         window.button.setEnabled(False)
         
-        startCamera()
-
-        #enable button again after taking the pics
-        window.button.setEnabled(True)
-        window.button.setText("Start")
+        startCamera(window)
 
 def main():
      app = QApplication(sys.argv)
@@ -39,34 +52,15 @@ def main():
      window.show()
      sys.exit(app.exec())
 
-    
-def startCamera():
-    video = cv2.VideoCapture(0)
-    photo_count = 0 #total number of photostrips
+def startCamera(window):
+     window.video = cv2.VideoCapture(0)
+     photo_count = 0 #total number of photostrips
 
-    if not video.isOpened():
+     window.timer.start (30) #update every 30ms
+
+     if not window.video.isOpened():
         print("Error Opening the Camera")
         return
-
-    while True:
-        ret, frame = video.read()
-        frame = cv2.flip(frame,1)
-
-        cv2.imshow("ASIJ Photobooth", frame)
-                         
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('p'):
-            #countdown(video)
-            captureImages(video)
-            photo_count+=1
-
-            print(photo_count)
-        
-        elif key == ord('q'):
-            break
-   
-    video.release()
-    cv2.destroyAllWindows()
 
 def captureImages(video):
     for i in range (4):
@@ -96,4 +90,33 @@ if __name__ == "__main__":
 
 
 
+
  
+
+ # def startCamera():
+#     video = cv2.VideoCapture(0)
+#     photo_count = 0 #total number of photostrips
+
+#     if not video.isOpened():
+#         print("Error Opening the Camera")
+#         return
+
+#     while True:
+#         ret, frame = video.read()
+#         frame = cv2.flip(frame,1)
+
+#         cv2.imshow("ASIJ Photobooth", frame)
+                         
+#         key = cv2.waitKey(1) & 0xFF
+#         if key == ord('p'):
+#             #countdown(video)
+#             captureImages(video)
+#             photo_count+=1
+
+#             print(photo_count)
+        
+#         elif key == ord('q'):
+#             break
+   
+#     video.release()
+#     cv2.destroyAllWindows()
