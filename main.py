@@ -12,6 +12,7 @@ class Window(QWidget):
 
         window.photo_count = 0 #total number of photostrips
         window.captureIndex = 0 #number of photos taken in current photostrip
+        window.video = None
         window.setWindowTitle("ASIJ Photobooth")
         
         window.layout = QVBoxLayout()
@@ -58,9 +59,12 @@ class Window(QWidget):
         
         elif event.key() == Qt.Key.Key_Q:
             window.timer.stop()
-            window.video.release()
+            
+            if window.video is not None:
+                window.video.release()
+            
             window.close()
-            exit
+            sys.exit()
 
     def captureImages(window):
         timestamp = time.strftime("%Y%m%d%H%M%S")
@@ -71,14 +75,18 @@ class Window(QWidget):
         window.captureIndex += 1 
 
         if window.captureIndex < 4:
-            QTimer.singleShot(2000, window.captureImages)            
+            QTimer.singleShot(1000, window.captureImages)            
         elif window.captureIndex == 4:
             print ("Done capturing photos")
             window.welcome.setHidden(False)
             window.button.setHidden(False)
-
+            
             window.timer.stop()
-            window.video.release()
+
+            if window.video is not None:
+                window.video.release()
+                window.video = None
+            
             window.imageLabel.clear()
 
             window.captureIndex = 0
@@ -93,7 +101,9 @@ def main():
      sys.exit(app.exec())
 
 def startCamera(window):
-     window.video = cv2.VideoCapture(0)
+     if window.video is None:
+        window.video = cv2.VideoCapture(0)
+     
      window.video.set(cv2.CAP_PROP_FRAME_WIDTH, 867) #510*1.7
      window.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 714) #420*1.7
      
