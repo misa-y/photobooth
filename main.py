@@ -16,7 +16,7 @@ class Window(QWidget):
         
         window.layout = QVBoxLayout()
         window.setLayout(window.layout)
-        window.resize(1000,600)   
+        window.setFixedSize(1470,895)   
         
         label = QLabel("Welcome to ASIJ Photobooth")
         window.layout.addWidget(label)
@@ -29,17 +29,27 @@ class Window(QWidget):
         window.timer.timeout.connect(window.cameraLoop)
         
         window.imageLabel = QLabel()
+        window.imageLabel.setFixedSize(510, 420)
         window.layout.addWidget(window.imageLabel)
+
+    def clicked(window):
+        window.button.setText("camera loading...")
+        window.button.setEnabled(False)
+        
+        startCamera(window)
 
     def cameraLoop(window):
         ret, window.frame = window.video.read()
+        if not ret:
+            return
+        
         window.frame = cv2.flip(window.frame,1)
-
+       
         height, width, channels = window.frame.shape
         image = QImage(window.frame.data, width, height, QImage.Format.Format_BGR888)
 
         pixmap = QPixmap.fromImage(image)
-        window.imageLabel.setPixmap(pixmap)
+        window.imageLabel.setPixmap(pixmap.scaled(window.imageLabel.width(), window.imageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
    
     def keyPressEvent(window, event):
         if event.key() == Qt.Key.Key_P:
@@ -52,12 +62,6 @@ class Window(QWidget):
             window.close()
             exit
 
-    def clicked(window):
-        window.button.setText("camera loading...")
-        window.button.setEnabled(False)
-        
-        startCamera(window)
-
     def captureImages(window):
         timestamp = time.strftime("%Y%m%d%H%M%S")
         filename = f"photo_{timestamp}.png"
@@ -67,7 +71,7 @@ class Window(QWidget):
         window.captureIndex += 1 
 
         if window.captureIndex < 4:
-            QTimer.singleShot(7000, window.captureImage)
+            QTimer.singleShot(2000, window.captureImages)            
         elif window.captureIndex == 4:
             print ("Done capturing photos")
             window.captureIndex = 0
@@ -83,6 +87,9 @@ def main():
 
 def startCamera(window):
      window.video = cv2.VideoCapture(0)
+     window.video.set(cv2.CAP_PROP_FRAME_WIDTH, 510)
+     window.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 420)
+     
      window.timer.start (30) #update every 30ms
 
      if not window.video.isOpened():
