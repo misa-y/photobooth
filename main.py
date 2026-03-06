@@ -19,18 +19,18 @@ class Window(QWidget):
         window.setFixedSize(1470,895)   
         
         window.welcome = QLabel("Welcome to ASIJ Photobooth")
-        window.layout.addWidget(window.welcome)
+        window.layout.addWidget(window.welcome, alignment = Qt.AlignmentFlag.AlignCenter)
 
         window.button = QPushButton("Start", window)
         window.button.clicked.connect(window.clicked)
-        window.layout.addWidget(window.button)
+        window.layout.addWidget(window.button, alignment = Qt.AlignmentFlag.AlignCenter)
 
         window.timer = QTimer()
         window.timer.timeout.connect(window.cameraLoop)
         
         window.imageLabel = QLabel()
         window.imageLabel.setFixedSize(867, 714)
-        window.layout.addWidget(window.imageLabel)
+        window.layout.addWidget(window.imageLabel, alignment = Qt.AlignmentFlag.AlignCenter)
 
     def clicked(window):
         window.welcome.setHidden(True)
@@ -80,7 +80,7 @@ class Window(QWidget):
             window.timer.stop()
             window.video.release()
             window.imageLabel.clear()
-            
+
             window.captureIndex = 0
             window.photo_count+=1
             print(f"Current # of Photo Strips: {window.photo_count}")
