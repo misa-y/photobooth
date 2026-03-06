@@ -18,8 +18,8 @@ class Window(QWidget):
         window.setLayout(window.layout)
         window.setFixedSize(1470,895)   
         
-        label = QLabel("Welcome to ASIJ Photobooth")
-        window.layout.addWidget(label)
+        window.welcome = QLabel("Welcome to ASIJ Photobooth")
+        window.layout.addWidget(window.welcome)
 
         window.button = QPushButton("Start", window)
         window.button.clicked.connect(window.clicked)
@@ -29,12 +29,12 @@ class Window(QWidget):
         window.timer.timeout.connect(window.cameraLoop)
         
         window.imageLabel = QLabel()
-        window.imageLabel.setFixedSize(510, 420)
+        window.imageLabel.setFixedSize(867, 714)
         window.layout.addWidget(window.imageLabel)
 
     def clicked(window):
-        window.button.setText("camera loading...")
-        window.button.setEnabled(False)
+        window.welcome.setHidden(True)
+        window.button.setHidden(True)
         
         startCamera(window)
 
@@ -74,6 +74,13 @@ class Window(QWidget):
             QTimer.singleShot(2000, window.captureImages)            
         elif window.captureIndex == 4:
             print ("Done capturing photos")
+            window.welcome.setHidden(False)
+            window.button.setHidden(False)
+
+            window.timer.stop()
+            window.video.release()
+            window.imageLabel.clear()
+            
             window.captureIndex = 0
             window.photo_count+=1
             print(f"Current # of Photo Strips: {window.photo_count}")
@@ -87,8 +94,8 @@ def main():
 
 def startCamera(window):
      window.video = cv2.VideoCapture(0)
-     window.video.set(cv2.CAP_PROP_FRAME_WIDTH, 510)
-     window.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 420)
+     window.video.set(cv2.CAP_PROP_FRAME_WIDTH, 867) #510*1.7
+     window.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 714) #420*1.7
      
      window.timer.start (30) #update every 30ms
 
