@@ -60,7 +60,6 @@ class Window(QWidget):
         if event.key() == Qt.Key.Key_P:
             window.captureIndex = 0 #reset capture index for new photostrip
             window.startCountdown()
-            window.captureImages()
         
         elif event.key() == Qt.Key.Key_Q:
             window.timer.stop()
@@ -72,16 +71,19 @@ class Window(QWidget):
             sys.exit()
     
     def startCountdown(window):
+        window.countdown = 7
         window.countdownLabel.setText(str(window.countdown))
-        QTimer.singleShot(1000, window.startCountdown)
+        QTimer.singleShot(1000, window.updateCountdown)
+
+    def updateCountdown(window):
+        window.countdown -= 1
 
         if window.countdown > 0:
             window.countdownLabel.setText(str(window.countdown))
-            window.countdown -= 1
-
+            QTimer.singleShot(1000, window.updateCountdown)
         elif window.countdown == 0:
             window.countdownLabel.setText("")
-            window.countdown = 7
+            window.captureImages()
 
     def captureImages(window):
         timestamp = time.strftime("%Y%m%d%H%M%S")
@@ -92,7 +94,7 @@ class Window(QWidget):
         window.captureIndex += 1 
 
         if window.captureIndex < 4:
-            QTimer.singleShot(7000, window.captureImages)            
+            window.startCountdown()
         elif window.captureIndex == 4:
             print ("Done capturing photos")
             window.welcome.setHidden(False)
