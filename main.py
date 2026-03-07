@@ -12,6 +12,7 @@ class Window(QWidget):
 
         window.photo_count = 0 #total number of photostrips
         window.captureIndex = 0 #number of photos taken in current photostrip
+        window.countdown = 7 # 7 seconds between photos
         window.video = None
         window.setWindowTitle("ASIJ Photobooth")
         
@@ -25,6 +26,9 @@ class Window(QWidget):
         window.button = QPushButton("Start", window)
         window.button.clicked.connect(window.clicked)
         window.layout.addWidget(window.button, alignment = Qt.AlignmentFlag.AlignCenter)
+
+        window.countdownLabel = QLabel("")
+        window.layout.addWidget(window.countdownLabel, alignment = Qt.AlignmentFlag.AlignCenter)
 
         window.timer = QTimer()
         window.timer.timeout.connect(window.cameraLoop)
@@ -55,6 +59,7 @@ class Window(QWidget):
     def keyPressEvent(window, event):
         if event.key() == Qt.Key.Key_P:
             window.captureIndex = 0 #reset capture index for new photostrip
+            window.startCountdown()
             window.captureImages()
         
         elif event.key() == Qt.Key.Key_Q:
@@ -65,6 +70,18 @@ class Window(QWidget):
             
             window.close()
             sys.exit()
+    
+    def startCountdown(window):
+        window.countdownLabel.setText(str(window.countdown))
+        QTimer.singleShot(1000, window.startCountdown)
+
+        if window.countdown > 0:
+            window.countdownLabel.setText(str(window.countdown))
+            window.countdown -= 1
+
+        elif window.countdown == 0:
+            window.countdownLabel.setText("")
+            window.countdown = 7
 
     def captureImages(window):
         timestamp = time.strftime("%Y%m%d%H%M%S")
@@ -75,7 +92,7 @@ class Window(QWidget):
         window.captureIndex += 1 
 
         if window.captureIndex < 4:
-            QTimer.singleShot(1000, window.captureImages)            
+            QTimer.singleShot(7000, window.captureImages)            
         elif window.captureIndex == 4:
             print ("Done capturing photos")
             window.welcome.setHidden(False)
@@ -93,7 +110,7 @@ class Window(QWidget):
             window.photo_count+=1
             print(f"Current # of Photo Strips: {window.photo_count}")
             return
-
+        
 def main():
      app = QApplication(sys.argv)
      window = Window()
