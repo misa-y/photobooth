@@ -12,7 +12,8 @@ class Window(QWidget):
 
         window.photo_count = 0 #total number of photostrips
         window.captureIndex = 0 #number of photos taken in current photostrip
-        window.countdown = 7 # 7 seconds between photos
+        window.countdown = 7 #7 seconds between each picture
+        
         window.video = None
         window.setWindowTitle("ASIJ Photobooth")
         
@@ -53,8 +54,8 @@ class Window(QWidget):
         height, width, channels = window.frame.shape
         image = QImage(window.frame.data, width, height, QImage.Format.Format_BGR888)
 
-        pixmap = QPixmap.fromImage(image)
-        window.imageLabel.setPixmap(pixmap.scaled(window.imageLabel.width(), window.imageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
+        window.feed = QPixmap.fromImage(image)
+        window.imageLabel.setPixmap(window.feed.scaled(window.imageLabel.width(), window.imageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
    
     def keyPressEvent(window, event):
         if event.key() == Qt.Key.Key_P:
@@ -69,34 +70,45 @@ class Window(QWidget):
             
             window.close()
             sys.exit()
-    
+
     def startCountdown(window):
-        window.countdown = 7
-        window.countdownLabel.setText(str(window.countdown))
-        QTimer.singleShot(1000, window.updateCountdown)
-
-    def updateCountdown(window):
-        window.countdown -= 1
-
         if window.countdown > 0:
             window.countdownLabel.setText(str(window.countdown))
-            QTimer.singleShot(1000, window.updateCountdown)
+            window.countdown -= 1
+            QTimer.singleShot(1000, window.startCountdown)
+        
         elif window.countdown == 0:
             window.countdownLabel.setText("")
             window.captureImages()
 
+    def preview(window):
+        window.countdownLabel.setText("test")
+        previewImage = QPixmap(window.filename)
+        window.imageLabel.setPixmap(previewImage.scaled(window.imageLabel.width(), window.imageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
+
+    def resumeCamera(window):
+        window.timer.start(30)
+        window.startCountdown()
+
     def captureImages(window):
         timestamp = time.strftime("%Y%m%d%H%M%S")
-        filename = f"photo_{timestamp}.png"
-        cv2.imwrite(filename, window.frame)
-        print (f"Saved {filename}")
+        window.filename = f"photo_{timestamp}.png"
+        cv2.imwrite(window.filename, window.frame)
+        print (f"Saved {window.filename}")
 
         window.captureIndex += 1 
 
         if window.captureIndex < 4:
-            window.startCountdown()
+            window.timer.stop()
+            window.preview()
+            window.countdown = 7
+            QTimer.singleShot(3000,window.resumeCamera)
+
         elif window.captureIndex == 4:
+            window.timer.stop()
+            window.preview()
             print ("Done capturing photos")
+            QTimer.singleShot(3000,window.countdownLabel.clear)
             window.welcome.setHidden(False)
             window.button.setHidden(False)
             
