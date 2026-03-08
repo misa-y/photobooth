@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 import time
 import sys
 
@@ -11,8 +12,9 @@ class Window(QWidget):
         super().__init__()
 
         window.photo_count = 0 #total number of photostrips
+        window.photos = [] #array to save filenames for photostrip generation
         window.captureIndex = 0 #number of photos taken in current photostrip
-        window.countdown = 7 #7 seconds between each picture
+        window.countdown = 3 #7 seconds between each picture
         
         window.video = None
         window.setWindowTitle("ASIJ Photobooth")
@@ -82,11 +84,53 @@ class Window(QWidget):
             window.captureImages()
 
     def preview(window):
-        window.countdownLabel.setText("test")
+        window.countdownLabel.setText("Preview")
         previewImage = QPixmap(window.filename)
         window.imageLabel.setPixmap(previewImage.scaled(window.imageLabel.width(), window.imageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
 
+    def photostrip(window):
+        readPhotos = [] 
+
+        for file in window.photos:
+            read = cv2.imread(file)
+            readPhotos.append(read)
+
+        height, width, channels = readPhotos[0].shape
+        spacing = 60
+        stripheight = (height * 4) + (spacing * 5)
+
+        photostrip = np.zeros((stripheight, width+220, 3), dtype=np.uint8)
+
+        y = 60
+        x = 110
+
+        for photo in readPhotos:
+            photostrip[y:y+height, x: x+width] = photo
+            y += height + spacing
+        
+        timestamp = time.strftime("%Y%m%d%H%M%S")
+        filename = f"photostrip_{timestamp}.png"
+        cv2.imwrite(filename, photostrip)
+        
+        #resets
+        window.welcome.setHidden(False)
+        window.button.setHidden(False)
+
+        if window.video is not None:
+            window.video.release()
+            window.video = None
+            
+        window.countdownLabel.clear()
+        window.imageLabel.clear()
+
+        window.captureIndex = 0
+        window.photo_count+=1
+        window.countdown = 3
+       
+        window.photos.clear()
+
     def resumeCamera(window):
+        window.countdown = 3
         window.timer.start(30)
         window.startCountdown()
 
@@ -95,33 +139,20 @@ class Window(QWidget):
         window.filename = f"photo_{timestamp}.png"
         cv2.imwrite(window.filename, window.frame)
         print (f"Saved {window.filename}")
-
+        window.photos.append(window.filename)
         window.captureIndex += 1 
 
         if window.captureIndex < 4:
             window.timer.stop()
             window.preview()
-            window.countdown = 7
-            QTimer.singleShot(3000,window.resumeCamera)
+            QTimer.singleShot(2500,window.resumeCamera)
 
         elif window.captureIndex == 4:
             window.timer.stop()
             window.preview()
             print ("Done capturing photos")
-            QTimer.singleShot(3000,window.countdownLabel.clear)
-            window.welcome.setHidden(False)
-            window.button.setHidden(False)
+            QTimer.singleShot(2500,window.photostrip)
             
-            window.timer.stop()
-
-            if window.video is not None:
-                window.video.release()
-                window.video = None
-            
-            window.imageLabel.clear()
-
-            window.captureIndex = 0
-            window.photo_count+=1
             print(f"Current # of Photo Strips: {window.photo_count}")
             return
         
