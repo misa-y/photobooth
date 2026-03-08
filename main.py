@@ -17,13 +17,13 @@ class Window(QWidget):
         window.countdown = 3 #7 seconds between each picture
         
         window.video = None
-        window.setWindowTitle("ASIJ Photobooth")
+        window.setWindowTitle("Photobooth")
         
         window.layout = QVBoxLayout()
         window.setLayout(window.layout)
         window.setFixedSize(1470,895)   
         
-        window.welcome = QLabel("Welcome to ASIJ Photobooth")
+        window.welcome = QLabel("Welcome to my Photobooth")
         window.layout.addWidget(window.welcome, alignment = Qt.AlignmentFlag.AlignCenter)
 
         window.button = QPushButton("Start", window)
@@ -44,7 +44,20 @@ class Window(QWidget):
         window.welcome.setHidden(True)
         window.button.setHidden(True)
         
-        startCamera(window)
+        window.startCamera()
+
+    def startCamera(window):
+        if window.video is None:
+            window.video = cv2.VideoCapture(0)
+     
+        window.video.set(cv2.CAP_PROP_FRAME_WIDTH, 867) #510*1.7
+        window.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 714) #420*1.7
+     
+        window.timer.start (30) #update every 30ms
+
+        if not window.video.isOpened():
+            print("Error Opening the Camera")
+            return
 
     def cameraLoop(window):
         ret, window.frame = window.video.read()
@@ -83,57 +96,6 @@ class Window(QWidget):
             window.countdownLabel.setText("")
             window.captureImages()
 
-    def preview(window):
-        window.countdownLabel.setText("Preview")
-        previewImage = QPixmap(window.filename)
-        window.imageLabel.setPixmap(previewImage.scaled(window.imageLabel.width(), window.imageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
-
-    def photostrip(window):
-        readPhotos = [] 
-
-        for file in window.photos:
-            read = cv2.imread(file)
-            readPhotos.append(read)
-
-        height, width, channels = readPhotos[0].shape
-        spacing = 60
-        stripheight = (height * 4) + (spacing * 5)
-
-        photostrip = np.zeros((stripheight, width+220, 3), dtype=np.uint8)
-
-        y = 60
-        x = 110
-
-        for photo in readPhotos:
-            photostrip[y:y+height, x: x+width] = photo
-            y += height + spacing
-        
-        timestamp = time.strftime("%Y%m%d%H%M%S")
-        filename = f"photostrip_{timestamp}.png"
-        cv2.imwrite(filename, photostrip)
-        
-        #resets
-        window.welcome.setHidden(False)
-        window.button.setHidden(False)
-
-        if window.video is not None:
-            window.video.release()
-            window.video = None
-            
-        window.countdownLabel.clear()
-        window.imageLabel.clear()
-
-        window.captureIndex = 0
-        window.photo_count+=1
-        window.countdown = 3
-       
-        window.photos.clear()
-
-    def resumeCamera(window):
-        window.countdown = 3
-        window.timer.start(30)
-        window.startCountdown()
-
     def captureImages(window):
         timestamp = time.strftime("%Y%m%d%H%M%S")
         window.filename = f"photo_{timestamp}.png"
@@ -152,28 +114,77 @@ class Window(QWidget):
             window.preview()
             print ("Done capturing photos")
             QTimer.singleShot(2500,window.photostrip)
+            QTimer.singleShot(6000,window.reset)
             
             print(f"Current # of Photo Strips: {window.photo_count}")
             return
+   
+    def preview(window):
+        window.countdownLabel.setText("Preview")
+        previewImage = QPixmap(window.filename)
+        window.imageLabel.setPixmap(previewImage.scaled(window.imageLabel.width(), window.imageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
+
+    def resumeCamera(window):
+        window.countdown = 3
+        window.timer.start(30)
+        window.startCountdown()
+
+    def photostrip(window):
+        readPhotos = [] 
+
+        for file in window.photos:
+            read = cv2.imread(file)
+            readPhotos.append(read)
+
+        height, width, channels = readPhotos[0].shape
+        spacing = 60
+        stripheight = (height * 4) + (spacing * 5)
+
+        window.photostripImage = np.zeros((stripheight, width+220, 3), dtype=np.uint8)
+
+        y = 60
+        x = 110
+
+        for photo in readPhotos:
+            window.photostripImage[y:y+height, x: x+width] = photo
+            y += height + spacing
+        
+        timestamp = time.strftime("%Y%m%d%H%M%S")
+        filename = f"photostrip_{timestamp}.png"
+        cv2.imwrite(filename, window.photostripImage)
+
+        window.previewPhotostrip()
+
+    def previewPhotostrip(window): 
+        height, width, channels = window.photostripImage.shape
+        previewPhotostrip = QImage(window.photostripImage.data, width, height, QImage.Format.Format_BGR888)
+        pixmapPhotostrip = QPixmap.fromImage(previewPhotostrip)
+        window.imageLabel.setPixmap(pixmapPhotostrip.scaled(window.imageLabel.width(), window.imageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
+
+    def reset(window):
+        #resets everything after showing photostrip
+        window.welcome.setHidden(False)
+        window.button.setHidden(False)
+
+        if window.video is not None:
+            window.video.release()
+            window.video = None
+            
+        window.countdownLabel.clear()
+        window.imageLabel.clear()
+
+        window.captureIndex = 0
+        window.photo_count+=1
+        window.countdown = 3
+       
+        window.photos.clear()
+
         
 def main():
      app = QApplication(sys.argv)
      window = Window()
      window.show()
      sys.exit(app.exec())
-
-def startCamera(window):
-     if window.video is None:
-        window.video = cv2.VideoCapture(0)
-     
-     window.video.set(cv2.CAP_PROP_FRAME_WIDTH, 867) #510*1.7
-     window.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 714) #420*1.7
-     
-     window.timer.start (30) #update every 30ms
-
-     if not window.video.isOpened():
-        print("Error Opening the Camera")
-        return
 
 #run
 if __name__ == "__main__":
