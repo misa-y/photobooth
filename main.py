@@ -60,6 +60,9 @@ class Window(QWidget):
             return
 
     def cameraLoop(window):
+        if window.video is None:
+            return
+        
         ret, window.frame = window.video.read()
         if not ret:
             return
@@ -116,6 +119,7 @@ class Window(QWidget):
             QTimer.singleShot(2500,window.photostrip)
             QTimer.singleShot(6000,window.reset)
             
+            window.photo_count+=1
             print(f"Current # of Photo Strips: {window.photo_count}")
             return
    
@@ -174,7 +178,6 @@ class Window(QWidget):
         window.imageLabel.clear()
 
         window.captureIndex = 0
-        window.photo_count+=1
         window.countdown = 3
        
         window.photos.clear()
