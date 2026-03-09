@@ -11,6 +11,15 @@ An real-time webcame interactive AI-powered photobooth for school events that ca
 - AI-based Filters
 - Gesture-Triggered Effects
 
+## Controls
+P → Start photo capture
+Q → Quit application
+
+## Requirements
+Python 3.9+
+OpenCV
+PyQt6
+NumPy
 
 ## Roadmap
 Pre-Project
