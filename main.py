@@ -72,9 +72,11 @@ class Window(QWidget):
         window.setFixedSize(1470,895)   
         
         window.welcome = QLabel("Welcome to my Photobooth") #welcome message displayed at the start of the program
+        window.welcome.setStyleSheet("font-size: 36px; font-weight: bold;")
         window.layout.addWidget(window.welcome, alignment = Qt.AlignmentFlag.AlignCenter)
 
         window.button = QPushButton("Start", window)
+        window.button.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #fdbe15; color: white; border: none; border-radius: 5px;""")
         window.button.clicked.connect(window.clicked)
         window.layout.addWidget(window.button, alignment = Qt.AlignmentFlag.AlignCenter)
 
