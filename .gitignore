@@ -1,6 +1,6 @@
 
 .DS_Store*
-photo_*.png
+photostrip_*.png
 
 #folders
 /venv
