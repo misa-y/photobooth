@@ -342,6 +342,7 @@ class Window(QWidget):
         window.photostrip()
     
     def chooseFilter(window):
+        window.reg.setHidden(False)
         window.bw.setHidden(False)
         window.vintage.setHidden(False)
         window.sixteen.setHidden(False)
@@ -350,17 +351,17 @@ class Window(QWidget):
         window.filter = filter
         window.photostrip()
 
-    def applyFilter(window):
+    def applyFilter(window, photo):
         if window.filter == "Regular":
-            return window.photostripImage
+            return photo
         elif window.filter == "B&W":
-            window.photostripImage = cv2.cvtColor(window.photostripImage, cv2.COLOR_BGR2GRAY)
-            window.photostripImage = cv2.cvtColor(window.photostripImage, cv2.COLOR_GRAY2BGR)
-            return window.photostripImage
+            photo = cv2.cvtColor(photo, cv2.COLOR_BGR2GRAY)
+            photo = cv2.cvtColor(photo, cv2.COLOR_GRAY2BGR)
+            return photo
         elif window.filter == "Vintage":
-            return window.photostripImage
+            return photo
         elif window.filter == "2016":
-            return window.photostripImage
+            return photo
         
     def photostripHelper(window):
         window.photostrip()
@@ -395,10 +396,9 @@ class Window(QWidget):
         x = 110
 
         for photo in readPhotos:
-            window.photostripImage[y:y+height, x: x+width] = photo
+            filteredPhoto = window.applyFilter(photo)
+            window.photostripImage[y:y+height, x: x+width] = filteredPhoto
             y += height + spacing
-        
-        window.photostripImage = window.applyFilter()
 
         #preview photostrip
         height, width, channels = window.photostripImage.shape
