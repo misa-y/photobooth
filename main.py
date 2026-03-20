@@ -66,6 +66,7 @@ class Window(QWidget):
         window.captureIndex = 0 #number of photos taken in current photostrip
         window.countdown = 3 #7 seconds between each picture
         window.frameColor = (255,255,255) #default photostrip frame color is white
+        window.filter = "Regular" #default filter is none
         
         window.video = None
         window.setWindowTitle("Photobooth")
@@ -146,6 +147,11 @@ class Window(QWidget):
         window.lavender.clicked.connect(lambda: window.showFrame((250,230,230)))
 
         #filter buttons
+        window.reg = QPushButton("Regular", window) #no filter
+        window.reg.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #FFFFFF; color: black; border: none; border-radius: 2px;""")
+        window.layout.addWidget(window.reg, alignment = Qt.AlignmentFlag.AlignRight) 
+        window.reg.setHidden(True)
+
         window.bw = QPushButton("B&W", window) #black and white filter
         window.bw.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #FFFFFF; color: black; border: none; border-radius: 2px;""")
         window.layout.addWidget(window.bw, alignment = Qt.AlignmentFlag.AlignRight) 
@@ -162,10 +168,10 @@ class Window(QWidget):
         window.sixteen.setHidden(True)
 
         #when color button is pressed, show photostrip with that color frame
-        window.bw.clicked.connect(lambda: window.applyFilter("bw"))
-        window.vintage.clicked.connect(lambda: window.applyFilter("vintage"))
-        window.sixteen.clicked.connect(lambda: window.applyFilter("2016"))
-
+        window.reg.clicked.connect(lambda: window.showFilter("Regular"))
+        window.bw.clicked.connect(lambda: window.showFilter("B&W"))
+        window.vintage.clicked.connect(lambda: window.showFilter("Vintage"))
+        window.sixteen.clicked.connect(lambda: window.showFilter("2016"))
 
     def clicked(window):
         """
@@ -335,18 +341,31 @@ class Window(QWidget):
         window.frameColor = color
         window.photostrip()
     
-    def applyFilter(window, filter):
-        if filter == "bw":
+    def chooseFilter(window):
+        window.bw.setHidden(False)
+        window.vintage.setHidden(False)
+        window.sixteen.setHidden(False)
+
+    def showFilter(window, filter):
+        window.filter = filter
+        window.photostrip()
+
+    def applyFilter(window):
+        if window.filter == "Regular":
+            return window.photostripImage
+        elif window.filter == "B&W":
             window.photostripImage = cv2.cvtColor(window.photostripImage, cv2.COLOR_BGR2GRAY)
             window.photostripImage = cv2.cvtColor(window.photostripImage, cv2.COLOR_GRAY2BGR)
-        elif filter == "vintage":
-            sys.exit("vintage filter not implemented yet")
-        elif filter == "2016":
-            sys.exit("2016 filter not implemented yet")
-
+            return window.photostripImage
+        elif window.filter == "Vintage":
+            return window.photostripImage
+        elif window.filter == "2016":
+            return window.photostripImage
+        
     def photostripHelper(window):
         window.photostrip()
         window.chooseFrame()
+        window.chooseFilter()
 
     def photostrip(window):
         """
@@ -379,6 +398,8 @@ class Window(QWidget):
             window.photostripImage[y:y+height, x: x+width] = photo
             y += height + spacing
         
+        window.photostripImage = window.applyFilter()
+
         #preview photostrip
         height, width, channels = window.photostripImage.shape
         previewPhotostrip = QImage(window.photostripImage.data, width, height, QImage.Format.Format_BGR888)
@@ -403,6 +424,8 @@ class Window(QWidget):
         Function: Clears all captured photos, resets counters and timers, releases the webcam if it's still active, and shows the welcome message and start button again to allow for a new photobooth session to begin.
 
         """
+
+        #hide all the customization buttons
         window.nextButton.setHidden(True)
         window.white.setHidden(True)
         window.black.setHidden(True)
@@ -410,6 +433,10 @@ class Window(QWidget):
         window.yellow.setHidden(True)
         window.mint.setHidden(True)
         window.lavender.setHidden(True)
+        window.reg.setHidden(True)
+        window.bw.setHidden(True)
+        window.vintage.setHidden(True)
+        window.sixteen.setHidden(True)
        
         #resets everything after showing photostrip
         window.welcome.setHidden(False)
