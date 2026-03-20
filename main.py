@@ -145,6 +145,28 @@ class Window(QWidget):
         window.mint.clicked.connect(lambda: window.showFrame((223,230,183)))
         window.lavender.clicked.connect(lambda: window.showFrame((250,230,230)))
 
+        #filter buttons
+        window.bw = QPushButton("B&W", window) #black and white filter
+        window.bw.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #FFFFFF; color: black; border: none; border-radius: 2px;""")
+        window.layout.addWidget(window.bw, alignment = Qt.AlignmentFlag.AlignRight) 
+        window.bw.setHidden(True)
+
+        window.vintage = QPushButton("Vintage", window) #vintage filter
+        window.vintage.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #FFFFFF; color: black; border: none; border-radius: 2px;""")
+        window.layout.addWidget(window.vintage, alignment = Qt.AlignmentFlag.AlignRight) 
+        window.vintage.setHidden(True)
+
+        window.sixteen = QPushButton("2016", window) #vintage filter
+        window.sixteen.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #FFFFFF; color: black; border: none; border-radius: 2px;""")
+        window.layout.addWidget(window.sixteen, alignment = Qt.AlignmentFlag.AlignRight) 
+        window.sixteen.setHidden(True)
+
+        #when color button is pressed, show photostrip with that color frame
+        window.bw.clicked.connect(lambda: window.applyFilter("bw"))
+        window.vintage.clicked.connect(lambda: window.applyFilter("vintage"))
+        window.sixteen.clicked.connect(lambda: window.applyFilter("2016"))
+
+
     def clicked(window):
         """
          Triggered when the Start button is pressed.
@@ -313,6 +335,15 @@ class Window(QWidget):
         window.frameColor = color
         window.photostrip()
     
+    def applyFilter(window, filter):
+        if filter == "bw":
+            window.photostripImage = cv2.cvtColor(window.photostripImage, cv2.COLOR_BGR2GRAY)
+            window.photostripImage = cv2.cvtColor(window.photostripImage, cv2.COLOR_GRAY2BGR)
+        elif filter == "vintage":
+            sys.exit("vintage filter not implemented yet")
+        elif filter == "2016":
+            sys.exit("2016 filter not implemented yet")
+
     def photostripHelper(window):
         window.photostrip()
         window.chooseFrame()
