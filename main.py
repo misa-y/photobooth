@@ -1,6 +1,7 @@
 from curses import window
 
 import cv2
+from matplotlib.pyplot import gray
 import numpy as np
 import time
 import sys
@@ -87,6 +88,12 @@ class Window(QWidget):
         window.startButton.clicked.connect(window.clicked)
         window.layout.addWidget(window.startButton, alignment = Qt.AlignmentFlag.AlignCenter)
 
+        #take pictures button
+        window.pictureButton = QPushButton("Take Pictures", window)
+        window.pictureButton.clicked.connect(window.takePicture)
+        window.pictureButton.setHidden(True)
+        window.layout.addWidget(window.pictureButton, alignment = Qt.AlignmentFlag.AlignCenter)
+       
         #next button
         window.nextButton = QPushButton("Next", window)
         window.nextButton.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #fdbe15; color: white; border: none; border-radius: 4px;""")
@@ -203,6 +210,8 @@ class Window(QWidget):
         window.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 714) #420*1.7
      
         window.timer.start (30) #update every 30ms
+       
+        window.pictureButton.setHidden(False) #show take picture button
 
         if not window.video.isOpened(): #check if camera opened successfully
             print("Error Opening the Camera")
@@ -238,25 +247,26 @@ class Window(QWidget):
         window.feed = QPixmap.fromImage(image)
         window.imageLabel.setPixmap(window.feed.scaled(window.imageLabel.width(), window.imageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
    
+    def takePicture(window):
+        window.captureIndex = 0 #reset capture index for new photostrip
+        window.startCountdown() 
+        window.pictureButton.setHidden(True)
+
     def keyPressEvent(window, event):
         """
          Handles keyboard input for controlling the photobooth.
 
          Function: Listens for specific key presses to trigger actions:
-         - 'P' key: Starts the photo capture process by resetting the capture index and starting the countdown.
          - 'Q' key: Stops the timer, releases the webcam, and closes the application.
 
          Preconditions: 
         - The application window must be active.
          
          Postconditions:
-        - Pressing 'P' initiates the photo capture sequence and pressing 'Q' closes the application.    
-        """
-        if event.key() == Qt.Key.Key_P:
-            window.captureIndex = 0 #reset capture index for new photostrip
-            window.startCountdown() 
+        - pressing 'Q' closes the application.    
+        """   
         
-        elif event.key() == Qt.Key.Key_Q:
+        if event.key() == Qt.Key.Key_Q:
             window.timer.stop()
             
             if window.video is not None:
