@@ -1,4 +1,5 @@
 from curses import window
+from email.mime import image
 
 import cv2
 from matplotlib.pyplot import gray
@@ -67,7 +68,7 @@ class Window(QWidget):
         window.captureIndex = 0 #number of photos taken in current photostrip
         window.countdown = 3 #7 seconds between each picture
         window.frameColor = (255,255,255) #default photostrip frame color is white
-        window.filter = "Regular" #default filter is none
+        window.filter = "2016" #default filter is none
         
         window.video = None
         window.setWindowTitle("Photobooth")
@@ -87,6 +88,11 @@ class Window(QWidget):
         window.startButton.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #fdbe15; color: white; border: none; border-radius: 4px;""")
         window.startButton.clicked.connect(window.clicked)
         window.layout.addWidget(window.startButton, alignment = Qt.AlignmentFlag.AlignCenter)
+
+        #TEST
+        window.testButton = QPushButton("Test Filter", window)
+        window.layout.addWidget(window.testButton)
+        window.testButton.clicked.connect(window.testFilter)
 
         #take pictures button
         window.pictureButton = QPushButton("Take Pictures", window)
@@ -369,8 +375,55 @@ class Window(QWidget):
             photo = cv2.cvtColor(photo, cv2.COLOR_GRAY2BGR)
             return photo
         elif window.filter == "Vintage":
+            photo = cv2.convertScaleAbs(photo, alpha = 1.2, beta = 5) #contrast & brightness
+
+            #tonal curve
+            photo = photo/255
+            photo = photo * photo * (2.5-1.5*photo) 
+            photo = (photo * 255).astype(np.uint8)
+
+            #hue, saturation, value
+            hsv = cv2.cvtColor(photo, cv2.COLOR_BGR2HSV)
+            h, s, v = cv2.split(hsv)
+            s = (s*0.25).astype(np.uint8) #desaturate
+            hsv = cv2.merge((h, s, v))
+            photo = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+            #coloring
+            photo = photo.astype(np.float32) 
+            photo *= .98
+            photo[:,:,2] *= 1.06 #red
+            photo[:,:,1] *= 1.00 #green
+            photo[:,:,0] *= 0.96 #blue
+            photo = np.clip(photo, 0, 255)
+            photo = photo.astype(np.uint8)
+            
+
+            #grain 
+            gphoto = photo / 255.0
+            grain = np.random.normal(0, 0.05, (gphoto.shape[0], gphoto.shape[1])) #array of random values with mean 0 and std 0.05 for each pixel
+            for i in range(3):
+                gphoto[:, :, i] += grain #add to each color channel to create the grain effect
+            gphoto = np.clip(gphoto, 0, 1) 
+            photo = (gphoto * 255).astype(np.uint8)
+
+            blur = cv2.GaussianBlur(photo, (3,3), 0) #blur
+            photo = cv2.addWeighted(photo, 0.4, blur, 0.6, 0)
+            
+            photo = cv2.convertScaleAbs(photo, alpha = 1, beta = 10)
+
             return photo
+        
         elif window.filter == "2016":
+            #coloring
+            photo = photo.astype(np.float32) 
+            photo *= 1.15
+            photo[:,:,2] *= 1.2 #red
+            photo[:,:,1] *= 1.00 #green
+            photo[:,:,0] *= 1.5 #blue
+            photo = np.clip(photo, 0, 255)
+            photo = photo.astype(np.uint8)
+
             return photo
         
     def photostripHelper(window):
@@ -464,7 +517,27 @@ class Window(QWidget):
        
         window.photos.clear()
 
+
+
+    def testFilter(window):
+        if window.frame is None:
+         return
+    
+        window.timer.stop()
+        filtered = window.applyFilter(window.frame.copy())
+
+        height, width, channels = filtered.shape
+        image = QImage(filtered.data, width, height, QImage.Format.Format_BGR888)
+
+        window.imageLabel.setPixmap(
+            QPixmap.fromImage(image).scaled(
+                window.imageLabel.width(),
+                window.imageLabel.height(),
+                Qt.AspectRatioMode.KeepAspectRatio
+            )
+        )
         
+
 def main():
 # Initializes the PyQt application and creates the main window for the photobooth.
      app = QApplication(sys.argv)
