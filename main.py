@@ -2,7 +2,7 @@ from curses import window
 from email.mime import image
 
 import cv2
-from matplotlib.pyplot import gray
+from matplotlib.pyplot import gray, hsv
 import numpy as np
 import time
 import sys
@@ -10,6 +10,8 @@ import sys
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtCore import QTimer, Qt
+
+from skimage import exposure
 
 class Window(QWidget):
     """
@@ -68,8 +70,8 @@ class Window(QWidget):
         window.captureIndex = 0 #number of photos taken in current photostrip
         window.countdown = 3 #7 seconds between each picture
         window.frameColor = (255,255,255) #default photostrip frame color is white
-        window.filter = "2016" #default filter is none
-        
+        window.filter = "vintage" #default filter is none
+    
         window.video = None
         window.setWindowTitle("Photobooth")
         
@@ -375,31 +377,24 @@ class Window(QWidget):
             photo = cv2.cvtColor(photo, cv2.COLOR_GRAY2BGR)
             return photo
         elif window.filter == "Vintage":
-            photo = cv2.convertScaleAbs(photo, alpha = 1.2, beta = 5) #contrast & brightness
+            photo = cv2.cvtColor(photo, cv2.COLOR_BGR2GRAY)
+            photo = cv2.cvtColor(photo, cv2.COLOR_GRAY2BGR)
 
-            #tonal curve
-            photo = photo/255
-            photo = photo * photo * (2.5-1.5*photo) 
-            photo = (photo * 255).astype(np.uint8)
+            #contrast and brightness
+            photo = cv2.convertScaleAbs(photo, alpha = 1.2, beta = 10) 
+            photo = photo.astype(np.float32)/ 255.0
+            p10, p80 = np.percentile(photo, (15, 80))
+            photo = exposure.rescale_intensity(photo, in_range=(p10, p80))
 
-            #hue, saturation, value
-            hsv = cv2.cvtColor(photo, cv2.COLOR_BGR2HSV)
-            h, s, v = cv2.split(hsv)
-            s = (s*0.25).astype(np.uint8) #desaturate
-            hsv = cv2.merge((h, s, v))
-            photo = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-
-            #coloring
-            photo = photo.astype(np.float32) 
-            photo *= .98
-            photo[:,:,2] *= 1.06 #red
-            photo[:,:,1] *= 1.00 #green
-            photo[:,:,0] *= 0.96 #blue
+            # #coloring adjustments 
+            photo[:,:,2] *= 1.09 #red
+            photo[:,:,1] *= 1.03 #green
+            photo[:,:,0] *= 0.98 #blue
             photo = np.clip(photo, 0, 255)
-            photo = photo.astype(np.uint8)
-            
+            photo = np.clip(photo, 0, 1)  
+            photo = (photo*255).astype(np.uint8)
 
-            #grain 
+            #grain and blur 
             gphoto = photo / 255.0
             grain = np.random.normal(0, 0.05, (gphoto.shape[0], gphoto.shape[1])) #array of random values with mean 0 and std 0.05 for each pixel
             for i in range(3):
@@ -408,22 +403,38 @@ class Window(QWidget):
             photo = (gphoto * 255).astype(np.uint8)
 
             blur = cv2.GaussianBlur(photo, (3,3), 0) #blur
-            photo = cv2.addWeighted(photo, 0.4, blur, 0.6, 0)
-            
-            photo = cv2.convertScaleAbs(photo, alpha = 1, beta = 10)
+            photo = cv2.addWeighted(photo, 0.2, blur, 0.8, 0)
+
+            #overlay
+            overlay = cv2.imread("vintageoverlay.png")
+            overlay = cv2.resize(overlay, (photo.shape[1], photo.shape[0]))
+            photo = cv2.addWeighted(photo, 0.85, overlay, 0.15, 0)
 
             return photo
+            
         
         elif window.filter == "2016":
+            blur = cv2.GaussianBlur(photo, (21,21), 0) #blur
+            photo = cv2.addWeighted(photo, 0.75, blur, 0.25, 0)
+            
             #coloring
             photo = photo.astype(np.float32) 
-            photo *= 1.15
-            photo[:,:,2] *= 1.2 #red
-            photo[:,:,1] *= 1.00 #green
-            photo[:,:,0] *= 1.5 #blue
-            photo = np.clip(photo, 0, 255)
-            photo = photo.astype(np.uint8)
+            hsv = cv2.cvtColor(photo.astype(np.uint8), cv2.COLOR_BGR2HSV).astype(np.float32)
+            hsv[:,:,1] *= 1.1 #saturation
+            
+            photo[:, :, 2] *= 1.2
+            photo[:, :, 1] *= 1.1
+            photo[:, :, 0] *= 1
 
+            photo = np.clip(photo, 0, 255).astype(np.uint8)
+
+            #overlay
+            overlay = cv2.imread("2016overlay.png")
+            overlay = cv2.resize(overlay, (photo.shape[1], photo.shape[0]))
+            photo = cv2.addWeighted(photo, 0.7, overlay, 0.3, 0)
+
+            #contrast and brightness
+            photo = cv2.convertScaleAbs(photo, alpha = 1.1, beta = 12) 
             return photo
         
     def photostripHelper(window):
