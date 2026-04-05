@@ -1,5 +1,6 @@
 from curses import window
 from email.mime import image
+from turtle import width
 
 import cv2
 from matplotlib.pyplot import gray, hsv
@@ -8,7 +9,7 @@ import time
 import sys
 
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton
-from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtGui import QImage, QPixmap, QIcon, QPainter
 from PyQt6.QtCore import QTimer, Qt
 
 from skimage import exposure
@@ -70,10 +71,13 @@ class Window(QWidget):
         window.captureIndex = 0 #number of photos taken in current photostrip
         window.countdown = 3 #7 seconds between each picture
         window.frameColor = (255,255,255) #default photostrip frame color is white
-        window.filter = "vintage" #default filter is none
+        window.filter = "Regular" #default filter is none
     
         window.video = None
         window.setWindowTitle("Photobooth")
+
+        #mouse tracking
+        window.setMouseTracking(True)
         
         #GUI Layout
         window.layout = QVBoxLayout()
@@ -177,7 +181,7 @@ class Window(QWidget):
         window.layout.addWidget(window.vintage, alignment = Qt.AlignmentFlag.AlignRight) 
         window.vintage.setHidden(True)
 
-        window.sixteen = QPushButton("2016", window) #vintage filter
+        window.sixteen = QPushButton("2016", window) #2016 filter
         window.sixteen.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #FFFFFF; color: black; border: none; border-radius: 2px;""")
         window.layout.addWidget(window.sixteen, alignment = Qt.AlignmentFlag.AlignRight) 
         window.sixteen.setHidden(True)
@@ -187,6 +191,20 @@ class Window(QWidget):
         window.bw.clicked.connect(lambda: window.showFilter("B&W"))
         window.vintage.clicked.connect(lambda: window.showFilter("Vintage"))
         window.sixteen.clicked.connect(lambda: window.showFilter("2016"))
+
+        #sticker buttons
+
+        window.goldstar = QPixmap("goldstar.png")
+        window.goldstar = window.goldstar.scaled(50,50)
+        window.goldstarButton = QPushButton()
+        window.goldstarButton.setIcon(QIcon(window.goldstar))
+        window.goldstarButton.setIconSize(window.goldstar.size())
+        window.goldstarButton.setStyleSheet("""background-color: transparent; border: none;""")
+        window.layout.addWidget(window.goldstarButton, alignment = Qt.AlignmentFlag.AlignRight)
+        window.goldstarButton.setHidden(True)
+
+        #when sticker button is pressed, show sticker on photostrip
+        window.goldstarButton.clicked.connect(lambda: window.selectSticker(window.goldstar))
 
     def clicked(window):
         """
@@ -381,15 +399,15 @@ class Window(QWidget):
             photo = cv2.cvtColor(photo, cv2.COLOR_GRAY2BGR)
 
             #contrast and brightness
-            photo = cv2.convertScaleAbs(photo, alpha = 1.2, beta = 10) 
+            photo = cv2.convertScaleAbs(photo, alpha = 1.2, beta = 5) 
             photo = photo.astype(np.float32)/ 255.0
-            p10, p80 = np.percentile(photo, (15, 80))
-            photo = exposure.rescale_intensity(photo, in_range=(p10, p80))
+            p10, p95 = np.percentile(photo, (10, 95))
+            photo = exposure.rescale_intensity(photo, in_range=(p10, p95))
 
             # #coloring adjustments 
-            photo[:,:,2] *= 1.09 #red
+            photo[:,:,2] *= 1.1 #red
             photo[:,:,1] *= 1.03 #green
-            photo[:,:,0] *= 0.98 #blue
+            photo[:,:,0] *= 0.97 #blue
             photo = np.clip(photo, 0, 255)
             photo = np.clip(photo, 0, 1)  
             photo = (photo*255).astype(np.uint8)
@@ -422,7 +440,7 @@ class Window(QWidget):
             hsv = cv2.cvtColor(photo.astype(np.uint8), cv2.COLOR_BGR2HSV).astype(np.float32)
             hsv[:,:,1] *= 1.1 #saturation
             
-            photo[:, :, 2] *= 1.2
+            photo[:, :, 2] *= 1.25
             photo[:, :, 1] *= 1.1
             photo[:, :, 0] *= 1
 
@@ -434,13 +452,58 @@ class Window(QWidget):
             photo = cv2.addWeighted(photo, 0.7, overlay, 0.3, 0)
 
             #contrast and brightness
-            photo = cv2.convertScaleAbs(photo, alpha = 1.1, beta = 12) 
+            photo = cv2.convertScaleAbs(photo, alpha = 1.2, beta = 12) 
             return photo
+        
+    def mousePressEvent(window, event):
+        sticker = getattr(window, "currentSticker", None)
+        image = getattr(window, "pixmapPhotostrip", None)
+
+        if sticker is None or image is None:
+            return
+       
+        x = int(event.position().x())
+        y = int(event.position().y())
+        
+        #keeps it in bounds of the photostrip image
+        w = window.currentSticker.width()
+        h = window.currentSticker.height()
+        x = max(0, min(x, window.pixmapPhotostrip.width() - w))
+        y = max(0, min(y, window.pixmapPhotostrip.height() - h))
+
+        window.showSticker(x, y)
+
+    def selectSticker(window, sticker):
+        window.currentSticker = sticker      
+
+    def chooseStickers(window):
+        window.goldstarButton.setHidden(False)
+
+    def showSticker(window, x, y):    
+        if not hasattr(window, "currentSticker"):
+            return
+
+         #makes it a "painting", "paints" the sticker onto the photostrip image at the clicked location
+        painter = QPainter(window.pixmapPhotostrip)
+        painter.drawPixmap(x, y, window.currentSticker)
+        painter.end()
+
+        #convert the pixmap back to an numpy array to update the photostrip image with the sticker
+        qimage = window.pixmapPhotostrip.toImage().convertToFormat(QImage.Format.Format_RGBA8888)
+        width = qimage.width()
+        height = qimage.height()
+        p = qimage.bits()
+        p.setsize(height * width * 4) 
+        array = np.frombuffer(p, dtype=np.uint8).reshape((height, width, 4))
+        window.photostripImage = array[:, :, :3].copy() 
+
+        window.imageLabel.setPixmap(window.pixmapPhotostrip.scaled(window.imageLabel.width(), window.imageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
         
     def photostripHelper(window):
         window.photostrip()
         window.chooseFrame()
         window.chooseFilter()
+        window.chooseStickers()
 
     def photostrip(window):
         """
@@ -477,8 +540,8 @@ class Window(QWidget):
         #preview photostrip
         height, width, channels = window.photostripImage.shape
         previewPhotostrip = QImage(window.photostripImage.data, width, height, QImage.Format.Format_BGR888)
-        pixmapPhotostrip = QPixmap.fromImage(previewPhotostrip)
-        window.imageLabel.setPixmap(pixmapPhotostrip.scaled(window.imageLabel.width(), window.imageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
+        window.pixmapPhotostrip = QPixmap.fromImage(previewPhotostrip)
+        window.imageLabel.setPixmap(window.pixmapPhotostrip.scaled(window.imageLabel.width(), window.imageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
        
     def printPhotostrip(window): 
         """
@@ -527,8 +590,6 @@ class Window(QWidget):
         window.countdown = 3
        
         window.photos.clear()
-
-
 
     def testFilter(window):
         if window.frame is None:
