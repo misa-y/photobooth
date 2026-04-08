@@ -193,7 +193,6 @@ class Window(QWidget):
         window.sixteen.clicked.connect(lambda: window.showFilter("2016"))
 
         #sticker buttons
-
         window.goldstar = QPixmap("goldstar.png")
         window.goldstar = window.goldstar.scaled(50,50)
         window.goldstarButton = QPushButton()
@@ -259,13 +258,14 @@ class Window(QWidget):
 
         if window.video is None:
             return
-        
+
         ret, window.frame = window.video.read()
         if not ret:
             print("Failed to read frame from camera.")
             return
         
         window.frame = cv2.flip(window.frame,1)
+        window.frame = window.enhanceFace(window.frame)
        
         height, width, channels = window.frame.shape
         image = QImage(window.frame.data, width, height, QImage.Format.Format_BGR888)
@@ -364,6 +364,34 @@ class Window(QWidget):
         window.timer.start(30)
         window.startCountdown()
 
+#facial enhancer
+    def enhanceFace(window, frame):
+        window.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        window.eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = window.face_cascade.detectMultiScale(frame, scaleFactor=1.2, minNeighbors=5)
+        
+        for (x, y, w, h) in faces:
+            face = gray[y:y+h, x:x+w]
+            face_eyes = gray[y : y + (h // 2), x : x + w]
+            eyes = window.eye_cascade.detectMultiScale(face_eyes)
+
+            #eye enhancer
+            for (ex, ey, ew, eh) in eyes:
+                eyeX = x + ex
+                eyeY = y + ey
+                radius = int(max(ew, eh) * 0.75)
+                
+                eye_roi = frame[eyeY:eyeY+eh, eyeX:eyeX+ew]
+                frame[eyeY:eyeY+eh, eyeX:eyeX+ew] = cv2.convertScaleAbs(eye_roi, alpha=1.2, beta=20)
+
+        return frame
+
+
+
+
+#frame 
     def chooseFrame(window):
         window.nextButton.setHidden(False)
         window.white.setHidden(False)
@@ -383,6 +411,7 @@ class Window(QWidget):
         window.vintage.setHidden(False)
         window.sixteen.setHidden(False)
 
+#filter
     def showFilter(window, filter):
         window.filter = filter
         window.photostrip()
@@ -454,8 +483,10 @@ class Window(QWidget):
             #contrast and brightness
             photo = cv2.convertScaleAbs(photo, alpha = 1.2, beta = 12) 
             return photo
-        
+
+#sticker     
     def mousePressEvent(window, event):
+
         sticker = getattr(window, "currentSticker", None)
         image = getattr(window, "pixmapPhotostrip", None)
 
@@ -464,12 +495,17 @@ class Window(QWidget):
        
         x = int(event.position().x())
         y = int(event.position().y())
-        
-        #keeps it in bounds of the photostrip image
-        w = window.currentSticker.width()
-        h = window.currentSticker.height()
-        x = max(0, min(x, window.pixmapPhotostrip.width() - w))
-        y = max(0, min(y, window.pixmapPhotostrip.height() - h))
+
+        print(x,y)
+
+        offsetLeft = 30
+        offsetTop = 140
+       
+        x = x - offsetLeft
+        y = y - offsetTop
+
+        if x < 0 or y < 0 or x > window.pixmapPhotostrip.width() or y > window.pixmapPhotostrip.height():
+            return
 
         window.showSticker(x, y)
 
@@ -479,6 +515,8 @@ class Window(QWidget):
     def chooseStickers(window):
         window.goldstarButton.setHidden(False)
 
+#NOT RIGHT, sticker placement is off
+#will fix later, but the idea is that when the user clicks on the photostrip preview, it will place the sticker at the clicked location on the photostrip image and update the preview to show the sticker on the photostrip. The mousePressEvent captures the click coordinates, and showSticker handles placing the sticker on the photostrip image and updating the display.
     def showSticker(window, x, y):    
         if not hasattr(window, "currentSticker"):
             return
@@ -489,16 +527,17 @@ class Window(QWidget):
         painter.end()
 
         #convert the pixmap back to an numpy array to update the photostrip image with the sticker
-        qimage = window.pixmapPhotostrip.toImage().convertToFormat(QImage.Format.Format_RGBA8888)
+        qimage = window.pixmapPhotostrip.toImage().convertToFormat(QImage.Format.Format_BGR888)
         width = qimage.width()
         height = qimage.height()
         p = qimage.bits()
-        p.setsize(height * width * 4) 
-        array = np.frombuffer(p, dtype=np.uint8).reshape((height, width, 4))
+        p.setsize(height * width * 3) 
+        array = np.frombuffer(p, dtype=np.uint8).reshape((height, width, 3))
         window.photostripImage = array[:, :, :3].copy() 
 
         window.imageLabel.setPixmap(window.pixmapPhotostrip.scaled(window.imageLabel.width(), window.imageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
-        
+
+#photostrip generation        
     def photostripHelper(window):
         window.photostrip()
         window.chooseFrame()
@@ -525,9 +564,10 @@ class Window(QWidget):
 
         height, width, channels = readPhotos[0].shape
         spacing = 60
-        stripheight = (height * 4) + (spacing * 5)
+        window.stripHeight = (height * 4) + (spacing * 5)
+        window.stripWidth = width + 220
 
-        window.photostripImage = np.full((stripheight, width+220, 3), window.frameColor, dtype=np.uint8)
+        window.photostripImage = np.full((window.stripHeight, window.stripWidth, 3), window.frameColor, dtype=np.uint8)
 
         y = 60
         x = 110
@@ -574,7 +614,8 @@ class Window(QWidget):
         window.bw.setHidden(True)
         window.vintage.setHidden(True)
         window.sixteen.setHidden(True)
-       
+        window.goldstarButton.setHidden(True)
+
         #resets everything after showing photostrip
         window.welcome.setHidden(False)
         window.startButton.setHidden(False)
