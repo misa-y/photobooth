@@ -265,7 +265,7 @@ class Window(QWidget):
             return
         
         window.frame = cv2.flip(window.frame,1)
-        window.frame = window.enhanceFace(window.frame)
+        # window.frame = window.enhanceFace(window.frame)
        
         height, width, channels = window.frame.shape
         image = QImage(window.frame.data, width, height, QImage.Format.Format_BGR888)
@@ -365,28 +365,28 @@ class Window(QWidget):
         window.startCountdown()
 
 #facial enhancer
-    def enhanceFace(window, frame):
-        window.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        window.eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
+    # def enhanceFace(window, frame):
+    #     window.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    #     window.eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
 
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = window.face_cascade.detectMultiScale(frame, scaleFactor=1.2, minNeighbors=5)
+    #     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    #     faces = window.face_cascade.detectMultiScale(frame, scaleFactor=1.2, minNeighbors=5)
         
-        for (x, y, w, h) in faces:
-            face = gray[y:y+h, x:x+w]
-            face_eyes = gray[y : y + (h // 2), x : x + w]
-            eyes = window.eye_cascade.detectMultiScale(face_eyes)
+    #     for (x, y, w, h) in faces:
+    #         face = gray[y:y+h, x:x+w]
+    #         face_eyes = gray[y : y + (h // 2), x : x + w]
+    #         eyes = window.eye_cascade.detectMultiScale(face_eyes)
 
-            #eye enhancer
-            for (ex, ey, ew, eh) in eyes:
-                eyeX = x + ex
-                eyeY = y + ey
-                radius = int(max(ew, eh) * 0.75)
+    #         #eye enhancer
+    #         for (ex, ey, ew, eh) in eyes:
+    #             eyeX = x + ex
+    #             eyeY = y + ey
+    #             radius = int(max(ew, eh) * 0.75)
                 
-                eye_roi = frame[eyeY:eyeY+eh, eyeX:eyeX+ew]
-                frame[eyeY:eyeY+eh, eyeX:eyeX+ew] = cv2.convertScaleAbs(eye_roi, alpha=1.2, beta=20)
+    #             eye_roi = frame[eyeY:eyeY+eh, eyeX:eyeX+ew]
+    #             frame[eyeY:eyeY+eh, eyeX:eyeX+ew] = cv2.convertScaleAbs(eye_roi, alpha=1.2, beta=20)
 
-        return frame
+    #     return frame
 
 
 
@@ -497,12 +497,12 @@ class Window(QWidget):
         y = int(event.position().y())
 
         print(x,y)
-
-        offsetLeft = 30
-        offsetTop = 140
        
-        x = x - offsetLeft
-        y = y - offsetTop
+        x = (x/window.width()) * window.pixmapPhotostrip.width()
+        y = (y/window.height()) * window.pixmapPhotostrip.height()
+
+        # x = x - (sticker.width() / 2)
+        # y = y - (sticker.height() / 2)
 
         if x < 0 or y < 0 or x > window.pixmapPhotostrip.width() or y > window.pixmapPhotostrip.height():
             return
@@ -515,15 +515,13 @@ class Window(QWidget):
     def chooseStickers(window):
         window.goldstarButton.setHidden(False)
 
-#NOT RIGHT, sticker placement is off
-#will fix later, but the idea is that when the user clicks on the photostrip preview, it will place the sticker at the clicked location on the photostrip image and update the preview to show the sticker on the photostrip. The mousePressEvent captures the click coordinates, and showSticker handles placing the sticker on the photostrip image and updating the display.
     def showSticker(window, x, y):    
         if not hasattr(window, "currentSticker"):
             return
 
          #makes it a "painting", "paints" the sticker onto the photostrip image at the clicked location
         painter = QPainter(window.pixmapPhotostrip)
-        painter.drawPixmap(x, y, window.currentSticker)
+        painter.drawPixmap(int(x), int(y), window.currentSticker)
         painter.end()
 
         #convert the pixmap back to an numpy array to update the photostrip image with the sticker
