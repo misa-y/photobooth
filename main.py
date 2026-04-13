@@ -127,83 +127,60 @@ class Window(QWidget):
         window.layout.addWidget(window.imageLabel, alignment = Qt.AlignmentFlag.AlignCenter)
 
         #standard color frames buttons
-        window.white = QPushButton("        ", window) #white
-        window.white.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #ffffff; color: black; border: none; border-radius: 2px;""")
-        window.layout.addWidget(window.white, alignment = Qt.AlignmentFlag.AlignRight)
-        window.white.setHidden(True)
+        framecolors = [
+            ("white",    "#ffffff", "black",  (255,255,255)),
+            ("black",    "#000000", "white",  (0,0,0)),
+            ("pink",     "#ffdbe9", "black",  (233,219,255)),
+            ("yellow",   "#fff6b7", "black",  (183,246,255)),
+            ("mint",     "#b7e6df", "black",  (223,230,183)),
+            ("lavender", "#e6e6fa", "black",  (250,230,230)),
+           ]
 
-        window.black = QPushButton("        ", window) #black
-        window.black.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #000000; color: white; border: none; border-radius: 2px;""")
-        window.layout.addWidget(window.black, alignment = Qt.AlignmentFlag.AlignRight)
-        window.black.setHidden(True)
-
-        window.pink = QPushButton("        ", window) #pink
-        window.pink.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #ffdbe9; color: black; border: none; border-radius: 2px;""")
-        window.layout.addWidget(window.pink, alignment = Qt.AlignmentFlag.AlignRight) 
-        window.pink.setHidden(True)
-
-        window.yellow = QPushButton("        ", window) #yellow
-        window.yellow.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #fff6b7; color: black; border: none; border-radius: 2px;""")
-        window.layout.addWidget(window.yellow, alignment = Qt.AlignmentFlag.AlignRight) 
-        window.yellow.setHidden(True)
-
-        window.mint = QPushButton("        ", window) #mint
-        window.mint.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #b7e6df; color: black; border: none; border-radius: 2px;""")
-        window.layout.addWidget(window.mint, alignment = Qt.AlignmentFlag.AlignRight) 
-        window.mint.setHidden(True)
-        
-        window.lavender = QPushButton("        ", window) #lavender
-        window.lavender.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #e6e6fa; color: black; border: none; border-radius: 2px;""")
-        window.layout.addWidget(window.lavender, alignment = Qt.AlignmentFlag.AlignRight) 
-        window.lavender.setHidden(True)
-
-        #when color button is pressed, show photostrip with that color frame
-        window.white.clicked.connect(lambda: window.showFrame((255,255,255)))
-        window.black.clicked.connect(lambda: window.showFrame((0,0,0)))
-        window.pink.clicked.connect(lambda: window.showFrame((233,219,255)))
-        window.yellow.clicked.connect(lambda: window.showFrame((183,246,255)))
-        window.mint.clicked.connect(lambda: window.showFrame((223,230,183)))
-        window.lavender.clicked.connect(lambda: window.showFrame((250,230,230)))
+        window.frameButtons = []
+        for name, background, text, rgb in framecolors:
+            button = QPushButton("        ", window)
+            button.setStyleSheet(f"""font-size: 24px; padding: 10px; background-color: {background}; color: {text}; border: none; border-radius: 2px;""")
+            button.clicked.connect(lambda checked, c=rgb: window.showFrame(c))
+            window.layout.addWidget(button, alignment = Qt.AlignmentFlag.AlignRight)
+            button.setHidden(True)
+            window.frameButtons.append(button)
 
         #filter buttons
-        window.reg = QPushButton("Regular", window) #no filter
-        window.reg.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #FFFFFF; color: black; border: none; border-radius: 2px;""")
-        window.layout.addWidget(window.reg, alignment = Qt.AlignmentFlag.AlignRight) 
-        window.reg.setHidden(True)
-
-        window.bw = QPushButton("B&W", window) #black and white filter
-        window.bw.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #FFFFFF; color: black; border: none; border-radius: 2px;""")
-        window.layout.addWidget(window.bw, alignment = Qt.AlignmentFlag.AlignRight) 
-        window.bw.setHidden(True)
-
-        window.vintage = QPushButton("Vintage", window) #vintage filter
-        window.vintage.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #FFFFFF; color: black; border: none; border-radius: 2px;""")
-        window.layout.addWidget(window.vintage, alignment = Qt.AlignmentFlag.AlignRight) 
-        window.vintage.setHidden(True)
-
-        window.sixteen = QPushButton("2016", window) #2016 filter
-        window.sixteen.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #FFFFFF; color: black; border: none; border-radius: 2px;""")
-        window.layout.addWidget(window.sixteen, alignment = Qt.AlignmentFlag.AlignRight) 
-        window.sixteen.setHidden(True)
-
-        #when color button is pressed, show photostrip with that color frame
-        window.reg.clicked.connect(lambda: window.showFilter("Regular"))
-        window.bw.clicked.connect(lambda: window.showFilter("B&W"))
-        window.vintage.clicked.connect(lambda: window.showFilter("Vintage"))
-        window.sixteen.clicked.connect(lambda: window.showFilter("2016"))
-
+        filters = ["Regular", "B&W", "Vintage", "2016"]
+        
+        window.filterButtons = []
+        for filter in filters:
+            button = QPushButton(filter, window)
+            button.setStyleSheet("""font-size: 18px; padding: 5px; background-color: #fdbe15; color: white; border: none; border-radius: 4px;""")
+            button.clicked.connect(lambda checked, f=filter: window.showFilter(f))
+            window.layout.addWidget(button, alignment = Qt.AlignmentFlag.AlignRight)
+            button.setHidden(True)
+            window.filterButtons.append(button)
+        
         #sticker buttons
-        window.goldstar = QPixmap("goldstar.png")
-        window.goldstar = window.goldstar.scaled(50,50)
-        window.goldstarButton = QPushButton()
-        window.goldstarButton.setIcon(QIcon(window.goldstar))
-        window.goldstarButton.setIconSize(window.goldstar.size())
-        window.goldstarButton.setStyleSheet("""background-color: transparent; border: none;""")
-        window.layout.addWidget(window.goldstarButton, alignment = Qt.AlignmentFlag.AlignRight)
-        window.goldstarButton.setHidden(True)
+        stickers = [
+            ("gradyear", 250),
+            ("gradhat", 300),
+            ("goldstar", 100),
+            ("goldcrown", 200),
+            ("sparkle", 80),
+            ("glitter", 80),
+            ("mustangbob", 200),
+            ("mustangbob2", 200),
+            ]
 
-        #when sticker button is pressed, show sticker on photostrip
-        window.goldstarButton.clicked.connect(lambda: window.selectSticker(window.goldstar))
+        window.stickerButtons = []
+        for sticker in stickers:
+            pixmap = QPixmap(f"{sticker}.png")
+            pixmap = pixmap.scaled(50,50, Qt.AspectRatioMode.KeepAspectRatio)
+            button = QPushButton()
+            button.setIcon(QIcon(pixmap))
+            button.setIconSize(pixmap.size())
+            button.setStyleSheet("""background-color: transparent; border: none;""")
+            button.clicked.connect(lambda checked, p=pixmap: window.selectSticker(p,sz))
+            window.layout.addWidget(button, alignment = Qt.AlignmentFlag.AlignRight)
+            button.setHidden(True)
+            window.stickerButtons.append(button)
 
     def clicked(window):
         """
@@ -394,24 +371,18 @@ class Window(QWidget):
 #frame 
     def chooseFrame(window):
         window.nextButton.setHidden(False)
-        window.white.setHidden(False)
-        window.black.setHidden(False)
-        window.pink.setHidden(False)
-        window.yellow.setHidden(False)
-        window.mint.setHidden(False)
-        window.lavender.setHidden(False)
+        for button in window.frameButtons:
+            button.setHidden(False)
 
     def showFrame(window, color):
         window.frameColor = color
         window.photostrip()
-    
-    def chooseFilter(window):
-        window.reg.setHidden(False)
-        window.bw.setHidden(False)
-        window.vintage.setHidden(False)
-        window.sixteen.setHidden(False)
 
-#filter
+#filter 
+    def chooseFilter(window):
+        for button in window.filterButtons:
+            button.setHidden(False) 
+
     def showFilter(window, filter):
         window.filter = filter
         window.photostrip()
@@ -493,35 +464,50 @@ class Window(QWidget):
         if sticker is None or image is None:
             return
        
-        x = int(event.position().x())
-        y = int(event.position().y())
+        position = window.imageLabel.mapFromGlobal(event.globalPosition().toPoint())
 
-        print(x,y)
-       
-        x = (x/window.width()) * window.pixmapPhotostrip.width()
-        y = (y/window.height()) * window.pixmapPhotostrip.height()
+        scaledPixmap = window.pixmapPhotostrip.scaled(
+        window.imageLabel.width(),
+        window.imageLabel.height(),
+        Qt.AspectRatioMode.KeepAspectRatio
+        )   
 
-        # x = x - (sticker.width() / 2)
-        # y = y - (sticker.height() / 2)
+        w = scaledPixmap.width()
+        h = scaledPixmap.height()
 
-        if x < 0 or y < 0 or x > window.pixmapPhotostrip.width() or y > window.pixmapPhotostrip.height():
+        offsetX = ((window.imageLabel.width() - w) / 2)
+        offsetY = (window.imageLabel.height() - h) / 2
+
+        imgx = position.x() 
+        imgy = position.y() - offsetY
+
+        if imgx < 0 or imgy < 0 or imgx > w or imgy > h:
             return
 
+        x = int(imgx * window.pixmapPhotostrip.width() / w)
+        y = int(imgy * window.pixmapPhotostrip.height() / h)
+    
         window.showSticker(x, y)
+        print(f"imageLabel x: {window.imageLabel.x()}")
+        print(f"offsetX: {offsetX}")
 
-    def selectSticker(window, sticker):
-        window.currentSticker = sticker      
+    def selectSticker(window, sticker, size):    
+        window.currentSticker = sticker
+        window.currentStickerSize = size
 
     def chooseStickers(window):
-        window.goldstarButton.setHidden(False)
+       for button in window.stickerButtons:
+            button.setHidden(False)
 
-    def showSticker(window, x, y):    
+    def showSticker(window, x, y): 
         if not hasattr(window, "currentSticker"):
             return
 
-         #makes it a "painting", "paints" the sticker onto the photostrip image at the clicked location
+        stickersize = window.currentStickerSize
+        scaledSticker = window.currentSticker.scaled(stickersize, stickersize, Qt.AspectRatioMode.KeepAspectRatio)
+         # makes it a "painting", "paints" the sticker onto the photostrip image at the clicked location
         painter = QPainter(window.pixmapPhotostrip)
-        painter.drawPixmap(int(x), int(y), window.currentSticker)
+        painter.drawPixmap(int(x), int(y), scaledSticker)
         painter.end()
 
         #convert the pixmap back to an numpy array to update the photostrip image with the sticker
@@ -602,17 +588,13 @@ class Window(QWidget):
 
         #hide all the customization buttons
         window.nextButton.setHidden(True)
-        window.white.setHidden(True)
-        window.black.setHidden(True)
-        window.pink.setHidden(True)
-        window.yellow.setHidden(True)
-        window.mint.setHidden(True)
-        window.lavender.setHidden(True)
-        window.reg.setHidden(True)
-        window.bw.setHidden(True)
-        window.vintage.setHidden(True)
-        window.sixteen.setHidden(True)
+        for button in window.frameButtons:
+            button.setHidden(True)
+        for button in window.filterButtons:
+            button.setHidden(True)
         window.goldstarButton.setHidden(True)
+        for button in window.stickerButtons:
+            button.setHidden(True)
 
         #resets everything after showing photostrip
         window.welcome.setHidden(False)
