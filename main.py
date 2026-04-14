@@ -50,6 +50,14 @@ class Window(QWidget):
         Button widget that starts the photobooth process when clicked.
     - photostripImage : numpy.ndarray
         The final photostrip image generated from the captured photos.
+    - pixmapPhotostrip : QPixmap
+        The photostrip image converted to a QPixmap for display in the GUI.
+    - frameColor array
+        standard frame colors for photostrips, default is white
+    - filter array
+        standard filters for photostrips, default is none
+    - sticker buttons
+        standard stickers to add to photostrips, default is none
     """
     def __init__(window):
         """
@@ -503,12 +511,10 @@ class Window(QWidget):
 
         stickersize = window.currentStickerSize
         scaledSticker = window.currentSticker.scaled(stickersize, stickersize, Qt.AspectRatioMode.KeepAspectRatio)
-         # makes it a "painting", "paints" the sticker onto the photostrip image at the clicked location
         painter = QPainter(window.pixmapPhotostrip)
-        painter.drawPixmap(int(x), int(y), scaledSticker)
+        painter.drawPixmap(int(x - stickersize/2), int(y - stickersize/2), scaledSticker)
         painter.end()
 
-        #convert the pixmap back to an numpy array to update the photostrip image with the sticker
         qimage = window.pixmapPhotostrip.toImage().convertToFormat(QImage.Format.Format_BGR888)
         width = qimage.width()
         height = qimage.height()
