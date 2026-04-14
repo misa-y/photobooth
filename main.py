@@ -159,25 +159,25 @@ class Window(QWidget):
         
         #sticker buttons
         stickers = [
-            ("gradyear", 250),
-            ("gradhat", 300),
-            ("goldstar", 100),
-            ("goldcrown", 200),
-            ("sparkle", 80),
-            ("glitter", 80),
-            ("mustangbob", 200),
-            ("mustangbob2", 200),
+            ("gradyear", 800),
+            ("gradhat", 700),
+            ("goldstar", 250),
+            ("goldcrown", 600),
+            ("sparkle", 200),
+            ("glitter", 400),
+            ("mustangbob", 580),
+            ("mustangbob2", 580),
             ]
 
         window.stickerButtons = []
-        for sticker in stickers:
+        for sticker, size in stickers:
             pixmap = QPixmap(f"{sticker}.png")
             pixmap = pixmap.scaled(50,50, Qt.AspectRatioMode.KeepAspectRatio)
             button = QPushButton()
             button.setIcon(QIcon(pixmap))
             button.setIconSize(pixmap.size())
             button.setStyleSheet("""background-color: transparent; border: none;""")
-            button.clicked.connect(lambda checked, p=pixmap: window.selectSticker(p,sz))
+            button.clicked.connect(lambda checked, p=pixmap, sz=size: window.selectSticker(p, sz))
             window.layout.addWidget(button, alignment = Qt.AlignmentFlag.AlignRight)
             button.setHidden(True)
             window.stickerButtons.append(button)
@@ -488,12 +488,10 @@ class Window(QWidget):
         y = int(imgy * window.pixmapPhotostrip.height() / h)
     
         window.showSticker(x, y)
-        print(f"imageLabel x: {window.imageLabel.x()}")
-        print(f"offsetX: {offsetX}")
 
     def selectSticker(window, sticker, size):    
         window.currentSticker = sticker
-        window.currentStickerSize = size
+        window.currentStickerSize = int(size)
 
     def chooseStickers(window):
        for button in window.stickerButtons:
