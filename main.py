@@ -1,6 +1,4 @@
-from curses import window
-from email.mime import image
-from turtle import width
+import threading
 
 import cv2
 from matplotlib.pyplot import gray, hsv
@@ -8,11 +6,12 @@ import numpy as np
 import time
 import sys
 
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QStackedWidget
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget
 from PyQt6.QtGui import QImage, QPixmap, QIcon, QPainter
 from PyQt6.QtCore import QTimer, Qt
 
 from skimage import exposure
+from playsound3 import playsound
 
 class Window(QWidget):
     """
@@ -129,29 +128,25 @@ class Window(QWidget):
         # window.layout.addWidget(window.testButton)
         # window.testButton.clicked.connect(window.testFilter)
 
-        #CAMERA PAGE (countdown, camera feed, previews, photostrip generation, customizations)
+        #CAMERA PAGE (countdown, camera feed, previews)
         cameraPage = QWidget()
-        cameraLayout = QVBoxLayout()
-        cameraLayout.setContentsMargins(0, 0, 0, 0)
-        cameraLayout.setSpacing(0)
-        cameraPage.setLayout(cameraLayout)
-       
+        cameraMainLayout = QVBoxLayout()
+        cameraMainLayout.setContentsMargins(0, 0, 0, 0)
+        cameraMainLayout.setSpacing(10)
+        cameraPage.setLayout(cameraMainLayout)
+
         #take pictures button
-        window.pictureButton = QPushButton("Take Pictures", window)
+        window.pictureButton = QPushButton("Take Pictures", cameraPage)
+        window.pictureButton.setStyleSheet("""font-size: 18px; padding: 8px 36px; background-color: #fdbe15; color: #ffffff; border: none; border-radius: 0px;""")
         window.pictureButton.clicked.connect(window.takePicture)
         window.pictureButton.setHidden(True)
-        cameraLayout.addWidget(window.pictureButton, alignment = Qt.AlignmentFlag.AlignCenter)
-       
-        #next button
-        window.nextButton = QPushButton("Next", window)
-        window.nextButton.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #fdbe15; color: white; border: none; border-radius: 4px;""")
-        window.nextButton.clicked.connect(window.printPhotostrip)
-        window.nextButton.setHidden(True)
-        cameraLayout.addWidget(window.nextButton, alignment = Qt.AlignmentFlag.AlignRight)
+        cameraMainLayout.addSpacing(10)
+        cameraMainLayout.addWidget(window.pictureButton, alignment = Qt.AlignmentFlag.AlignCenter)
 
         #countdown label
-        window.countdownLabel = QLabel("") #widget to display countdown before each photo is taken 
-        cameraLayout.addWidget(window.countdownLabel, alignment = Qt.AlignmentFlag.AlignCenter)
+        window.countdownLabel = QLabel("") 
+        window.countdownLabel.setStyleSheet("""color: #000000; font-size: 30px; font-weight:380; padding: 10px;""")
+        cameraMainLayout.addWidget(window.countdownLabel, alignment = Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
         
         #timer
         window.timer = QTimer()
@@ -160,9 +155,49 @@ class Window(QWidget):
         #image label
         window.imageLabel = QLabel() #widget to display camera feed and previews
         window.imageLabel.setFixedSize(867, 714)
-        cameraLayout.addWidget(window.imageLabel, alignment = Qt.AlignmentFlag.AlignCenter)
+        cameraMainLayout.addWidget(window.imageLabel, alignment = Qt.AlignmentFlag.AlignCenter)
+
+        #CUSTOM PAGE (frame, filter, sticker options)
+        customPage = QWidget()
+        customMainLayout = QHBoxLayout()
+        customMainLayout.setContentsMargins(40, 40, 40, 40)
+        customMainLayout.setSpacing(40)
+        customPage.setLayout(customMainLayout)
+
+        #left panel (photostrip preview)
+        leftPanel = QWidget()
+        leftLayout = QVBoxLayout()
+        leftLayout.setContentsMargins(0, 0, 0, 0)
+        leftLayout.setSpacing(0)
+        leftPanel.setLayout(leftLayout)
+
+        #image label for photostrip preview
+        window.customImageLabel = QLabel()
+        window.customImageLabel.setFixedSize(435,714)
+        leftLayout.addWidget(window.customImageLabel, alignment = Qt.AlignmentFlag.AlignCenter)
+        customMainLayout.addWidget(leftPanel)
+
+        #right panel (customization options)
+        rightPanel = QWidget()
+        rightLayout = QVBoxLayout()
+        rightLayout.setContentsMargins(50, 40, 50, 40)
+        rightLayout.setSpacing(10)
+        rightPanel.setLayout(rightLayout)
+
+        #next button
+        window.nextButton = QPushButton("Next", customPage)
+        window.nextButton.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #fdbe15; color: white; border: none; border-radius: 4px;""")
+        window.nextButton.clicked.connect(window.printPhotostrip)
+        rightLayout.addWidget(window.nextButton, alignment = Qt.AlignmentFlag.AlignRight)
+        window.nextButton.setFixedWidth(100)
 
         #standard color frames buttons
+        frameLabel = QLabel("Frame Color")
+        frameLabel.setStyleSheet("""color: #000000; font-size: 20px; font-weight: 400;""")
+        rightLayout.addWidget(frameLabel)
+
+        frameRow = QHBoxLayout()
+        frameRow.setSpacing(12)
         framecolors = [
             ("white",    "#ffffff", "black",  (255,255,255)),
             ("black",    "#000000", "white",  (0,0,0)),
@@ -174,26 +209,39 @@ class Window(QWidget):
 
         window.frameButtons = []
         for name, background, text, rgb in framecolors:
-            button = QPushButton("        ", window)
+            button = QPushButton("        ", cameraPage)
             button.setStyleSheet(f"""font-size: 24px; padding: 10px; background-color: {background}; color: {text}; border: none; border-radius: 2px;""")
             button.clicked.connect(lambda checked, c=rgb: window.showFrame(c))
-            cameraLayout.addWidget(button, alignment = Qt.AlignmentFlag.AlignRight)
-            button.setHidden(True)
+            frameRow.addWidget(button)
             window.frameButtons.append(button)
+        frameRow.addStretch()
+        rightLayout.addLayout(frameRow)
 
         #filter buttons
+        filterLabel = QLabel("Filter")
+        filterLabel.setStyleSheet("""color: #000000; font-size: 20px; font-weight: 400;""")
+        rightLayout.addWidget(filterLabel)
+
+        filterRow = QHBoxLayout()
+        filterRow.setSpacing(12)
         filters = ["Regular", "B&W", "Vintage", "2016"]
         
         window.filterButtons = []
         for filter in filters:
-            button = QPushButton(filter, window)
-            button.setStyleSheet("""font-size: 18px; padding: 5px; background-color: #fdbe15; color: white; border: none; border-radius: 4px;""")
+            button = QPushButton(filter, cameraPage)
+            button.setStyleSheet("""font-size: 18px; padding: 5px; background-color: #ffffff; color: #000000; border: 1px solid #000000; border-radius: 4px;""")
             button.clicked.connect(lambda checked, f=filter: window.showFilter(f))
-            cameraLayout.addWidget(button, alignment = Qt.AlignmentFlag.AlignRight)
-            button.setHidden(True)
+            filterRow.addWidget(button)
             window.filterButtons.append(button)
-        
+        rightLayout.addLayout(filterRow)
+
         #sticker buttons
+        stickerLabel = QLabel("Stickers")
+        stickerLabel.setStyleSheet("""color: #000000; font-size: 20px; font-weight: 400;""")
+        rightLayout.addWidget(stickerLabel)
+
+        stickerRow = QHBoxLayout()
+        stickerRow.setSpacing(12)
         stickers = [
             ("asij", 600),
             ("gradyear", 800),
@@ -209,19 +257,22 @@ class Window(QWidget):
         window.stickerButtons = []
         for sticker, size in stickers:
             pixmap = QPixmap(f"{sticker}.png")
-            scaledpixmap = pixmap.scaled(50,50, Qt.AspectRatioMode.KeepAspectRatio)
+            scaledpixmap = pixmap.scaled(100,100, Qt.AspectRatioMode.KeepAspectRatio)
             button = QPushButton()
             button.setIcon(QIcon(scaledpixmap))
             button.setIconSize(scaledpixmap.size())
             button.setStyleSheet("""background-color: transparent; border: none;""")
             button.clicked.connect(lambda checked, p=pixmap, sz=size: window.selectSticker(p, sz))
-            cameraLayout.addWidget(button, alignment = Qt.AlignmentFlag.AlignRight)
-            button.setHidden(True)
+            stickerRow.addWidget(button)
             window.stickerButtons.append(button)
+        rightLayout.addLayout(stickerRow)
+        
+        customMainLayout.addWidget(rightPanel)
 
         #ALL PAGES
         window.stack.addWidget(homePage)
         window.stack.addWidget(cameraPage)
+        window.stack.addWidget(customPage)
 
     def clicked(window):
         """
@@ -252,7 +303,7 @@ class Window(QWidget):
      
         window.timer.start (30) #update every 30ms
        
-        window.pictureButton.setHidden(False) #show take picture button
+        window.pictureButton.setHidden(False)
 
         if not window.video.isOpened(): #check if camera opened successfully
             print("Error Opening the Camera")
@@ -325,6 +376,8 @@ class Window(QWidget):
         """
         if window.countdown > 0:
             window.countdownLabel.setText(str(window.countdown))
+            if window.countdown == 1:
+                playsound('camerasound.mp3', block=False)
             window.countdown -= 1
             QTimer.singleShot(1000, window.startCountdown)
         
@@ -405,23 +458,12 @@ class Window(QWidget):
     #     return frame
 
 
-
-
 #frame 
-    def chooseFrame(window):
-        window.nextButton.setHidden(False)
-        for button in window.frameButtons:
-            button.setHidden(False)
-
     def showFrame(window, color):
         window.frameColor = color
         window.photostrip()
 
 #filter 
-    def chooseFilter(window):
-        for button in window.filterButtons:
-            button.setHidden(False) 
-
     def showFilter(window, filter):
         window.filter = filter
         window.photostrip()
@@ -503,19 +545,18 @@ class Window(QWidget):
         if sticker is None or image is None:
             return
        
-        position = window.imageLabel.mapFromGlobal(event.globalPosition().toPoint())
+        position = window.customImageLabel.mapFromGlobal(event.globalPosition().toPoint())
 
         scaledPixmap = window.pixmapPhotostrip.scaled(
-        window.imageLabel.width(),
-        window.imageLabel.height(),
+        window.customImageLabel.width(),
+        window.customImageLabel.height(),
         Qt.AspectRatioMode.KeepAspectRatio
         )   
 
         w = scaledPixmap.width()
         h = scaledPixmap.height()
 
-        offsetX = ((window.imageLabel.width() - w) / 2)
-        offsetY = (window.imageLabel.height() - h) / 2
+        offsetY = (window.customImageLabel.height() - h) / 2
 
         imgx = position.x() 
         imgy = position.y() - offsetY
@@ -531,10 +572,6 @@ class Window(QWidget):
     def selectSticker(window, sticker, size):    
         window.currentSticker = sticker
         window.currentStickerSize = int(size)
-
-    def chooseStickers(window):
-       for button in window.stickerButtons:
-            button.setHidden(False)
 
     def showSticker(window, x, y): 
         if not hasattr(window, "currentSticker"):
@@ -554,14 +591,12 @@ class Window(QWidget):
         array = np.frombuffer(p, dtype=np.uint8).reshape((height, width, 3))
         window.photostripImage = array[:, :, :3].copy() 
 
-        window.imageLabel.setPixmap(window.pixmapPhotostrip.scaled(window.imageLabel.width(), window.imageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
+        window.customImageLabel.setPixmap(window.pixmapPhotostrip.scaled(window.customImageLabel.width(), window.customImageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
 
 #photostrip generation        
     def photostripHelper(window):
+        window.stack.setCurrentIndex(2)
         window.photostrip()
-        window.chooseFrame()
-        window.chooseFilter()
-        window.chooseStickers()
 
     def photostrip(window):
         """
@@ -600,7 +635,7 @@ class Window(QWidget):
         height, width, channels = window.photostripImage.shape
         previewPhotostrip = QImage(window.photostripImage.data, width, height, QImage.Format.Format_BGR888)
         window.pixmapPhotostrip = QPixmap.fromImage(previewPhotostrip)
-        window.imageLabel.setPixmap(window.pixmapPhotostrip.scaled(window.imageLabel.width(), window.imageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
+        window.customImageLabel.setPixmap(window.pixmapPhotostrip.scaled(window.customImageLabel.width(), window.customImageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
        
     def printPhotostrip(window): 
         """
@@ -622,14 +657,6 @@ class Window(QWidget):
         """
 
         #hide all the customization buttons
-        window.nextButton.setHidden(True)
-        for button in window.frameButtons:
-            button.setHidden(True)
-        for button in window.filterButtons:
-            button.setHidden(True)
-        for button in window.stickerButtons:
-             button.setHidden(True)
-
         window.stack.setCurrentIndex(0)
 
         if window.video is not None:
@@ -638,11 +665,13 @@ class Window(QWidget):
             
         window.countdownLabel.clear()
         window.imageLabel.clear()
-
+        window.customImageLabel.clear()
         window.captureIndex = 0
         window.countdown = 3
-       
         window.photos.clear()
+        window.filter = "Regular"
+        window.frameColor = (255,255,255)
+        window.currentSticker = None
 
     def testFilter(window):
         if window.frame is None:
