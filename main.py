@@ -167,6 +167,7 @@ class Window(QWidget):
         
         #sticker buttons
         stickers = [
+            ("asij", 600)
             ("gradyear", 800),
             ("gradhat", 700),
             ("goldstar", 250),
