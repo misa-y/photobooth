@@ -8,7 +8,7 @@ import numpy as np
 import time
 import sys
 
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QStackedWidget
 from PyQt6.QtGui import QImage, QPixmap, QIcon, QPainter
 from PyQt6.QtCore import QTimer, Qt
 
@@ -88,51 +88,79 @@ class Window(QWidget):
         window.setMouseTracking(True)
         
         #GUI Layout
-        window.layout = QVBoxLayout()
-        window.setLayout(window.layout)
+        window.setStyleSheet("background-color: #ffffff;")
         window.setFixedSize(1470,895)   
-        
-        #welcome text
-        window.welcome = QLabel("Welcome to my Photobooth") #welcome message displayed at the start of the program
-        window.welcome.setStyleSheet("font-size: 36px; font-weight: bold;")
-        window.layout.addWidget(window.welcome, alignment = Qt.AlignmentFlag.AlignCenter)
+        window.stack = QStackedWidget()
+        mainLayout = QVBoxLayout()
+        mainLayout.setContentsMargins(0, 0, 0, 0)
+        mainLayout.setSpacing(0)
+        mainLayout.addWidget(window.stack)
+        window.setLayout(mainLayout)
+
+        #HOMEPAGE (header, photobooth text, start button)
+        homePage = QWidget()
+        homeLayout = QVBoxLayout()
+        homeLayout.setContentsMargins(0, 0, 0, 0)
+        homeLayout.setSpacing(0)
+        homePage.setLayout(homeLayout)
+
+        #top header
+        window.header= QLabel("ASIJ") 
+        window.header.setStyleSheet("""background-color: #000000; color: #febe15; font-size: 26px; font-weight: bold; padding: 4px 10px;""")
+        window.header.setFixedHeight(40)
+        homeLayout.addWidget(window.header)
+
+        homeLayout.addSpacing(260)
+
+        #photobooth text
+        window.photoboothText = QLabel("PHOTOBOOTH")
+        window.photoboothText.setStyleSheet("""color: #000000; font-size: 96px; font-weight: 900;""")
+        window.photoboothText.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        homeLayout.addWidget(window.photoboothText)
 
         #start button
         window.startButton = QPushButton("Start", window)
-        window.startButton.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #fdbe15; color: white; border: none; border-radius: 4px;""")
+        window.startButton.setStyleSheet("""font-size: 34px; padding: 12px 48px; background-color: #febe15; color: white; border: none; border-radius: 0px;""")
         window.startButton.clicked.connect(window.clicked)
-        window.layout.addWidget(window.startButton, alignment = Qt.AlignmentFlag.AlignCenter)
+        homeLayout.addWidget(window.startButton, alignment = Qt.AlignmentFlag.AlignCenter)
 
-        #TEST
-        window.testButton = QPushButton("Test Filter", window)
-        window.layout.addWidget(window.testButton)
-        window.testButton.clicked.connect(window.testFilter)
+        #TEST FILTER BUTTON
+        # window.testButton = QPushButton("Test Filter", window)
+        # window.layout.addWidget(window.testButton)
+        # window.testButton.clicked.connect(window.testFilter)
 
+        #CAMERA PAGE (countdown, camera feed, previews, photostrip generation, customizations)
+        cameraPage = QWidget()
+        cameraLayout = QVBoxLayout()
+        cameraLayout.setContentsMargins(0, 0, 0, 0)
+        cameraLayout.setSpacing(0)
+        cameraPage.setLayout(cameraLayout)
+       
         #take pictures button
         window.pictureButton = QPushButton("Take Pictures", window)
         window.pictureButton.clicked.connect(window.takePicture)
         window.pictureButton.setHidden(True)
-        window.layout.addWidget(window.pictureButton, alignment = Qt.AlignmentFlag.AlignCenter)
+        cameraLayout.addWidget(window.pictureButton, alignment = Qt.AlignmentFlag.AlignCenter)
        
         #next button
         window.nextButton = QPushButton("Next", window)
         window.nextButton.setStyleSheet("""font-size: 24px; padding: 10px; background-color: #fdbe15; color: white; border: none; border-radius: 4px;""")
         window.nextButton.clicked.connect(window.printPhotostrip)
         window.nextButton.setHidden(True)
-        window.layout.addWidget(window.nextButton, alignment = Qt.AlignmentFlag.AlignRight)
+        cameraLayout.addWidget(window.nextButton, alignment = Qt.AlignmentFlag.AlignRight)
 
         #countdown label
         window.countdownLabel = QLabel("") #widget to display countdown before each photo is taken 
-        window.layout.addWidget(window.countdownLabel, alignment = Qt.AlignmentFlag.AlignCenter)
-
+        cameraLayout.addWidget(window.countdownLabel, alignment = Qt.AlignmentFlag.AlignCenter)
+        
         #timer
         window.timer = QTimer()
         window.timer.timeout.connect(window.cameraLoop) #runs cameraLoop when timer is connected
-        
+  
         #image label
         window.imageLabel = QLabel() #widget to display camera feed and previews
         window.imageLabel.setFixedSize(867, 714)
-        window.layout.addWidget(window.imageLabel, alignment = Qt.AlignmentFlag.AlignCenter)
+        cameraLayout.addWidget(window.imageLabel, alignment = Qt.AlignmentFlag.AlignCenter)
 
         #standard color frames buttons
         framecolors = [
@@ -149,7 +177,7 @@ class Window(QWidget):
             button = QPushButton("        ", window)
             button.setStyleSheet(f"""font-size: 24px; padding: 10px; background-color: {background}; color: {text}; border: none; border-radius: 2px;""")
             button.clicked.connect(lambda checked, c=rgb: window.showFrame(c))
-            window.layout.addWidget(button, alignment = Qt.AlignmentFlag.AlignRight)
+            cameraLayout.addWidget(button, alignment = Qt.AlignmentFlag.AlignRight)
             button.setHidden(True)
             window.frameButtons.append(button)
 
@@ -161,13 +189,13 @@ class Window(QWidget):
             button = QPushButton(filter, window)
             button.setStyleSheet("""font-size: 18px; padding: 5px; background-color: #fdbe15; color: white; border: none; border-radius: 4px;""")
             button.clicked.connect(lambda checked, f=filter: window.showFilter(f))
-            window.layout.addWidget(button, alignment = Qt.AlignmentFlag.AlignRight)
+            cameraLayout.addWidget(button, alignment = Qt.AlignmentFlag.AlignRight)
             button.setHidden(True)
             window.filterButtons.append(button)
         
         #sticker buttons
         stickers = [
-            ("asij", 600)
+            ("asij", 600),
             ("gradyear", 800),
             ("gradhat", 700),
             ("goldstar", 250),
@@ -187,9 +215,13 @@ class Window(QWidget):
             button.setIconSize(scaledpixmap.size())
             button.setStyleSheet("""background-color: transparent; border: none;""")
             button.clicked.connect(lambda checked, p=pixmap, sz=size: window.selectSticker(p, sz))
-            window.layout.addWidget(button, alignment = Qt.AlignmentFlag.AlignRight)
+            cameraLayout.addWidget(button, alignment = Qt.AlignmentFlag.AlignRight)
             button.setHidden(True)
             window.stickerButtons.append(button)
+
+        #ALL PAGES
+        window.stack.addWidget(homePage)
+        window.stack.addWidget(cameraPage)
 
     def clicked(window):
         """
@@ -197,9 +229,7 @@ class Window(QWidget):
 
          Function: Hides the welcome message and start button, then initializes the camera system.
         """
-        window.welcome.setHidden(True)
-        window.startButton.setHidden(True)
-        
+        window.stack.setCurrentIndex(1)       
         window.startCamera()
 
     def startCamera(window):
@@ -597,13 +627,10 @@ class Window(QWidget):
             button.setHidden(True)
         for button in window.filterButtons:
             button.setHidden(True)
-        window.goldstarButton.setHidden(True)
         for button in window.stickerButtons:
-            button.setHidden(True)
+             button.setHidden(True)
 
-        #resets everything after showing photostrip
-        window.welcome.setHidden(False)
-        window.startButton.setHidden(False)
+        window.stack.setCurrentIndex(0)
 
         if window.video is not None:
             window.video.release()
