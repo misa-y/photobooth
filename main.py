@@ -17,6 +17,10 @@ class Window(QWidget):
     """
     Main GUI window for the Photobooth.
     
+    split into 3 pages:
+    - Homepage: Displays welcome message and start button.
+    - Camera Page: Shows live camera feed, countdown timer, and photo previews.
+    - Customization Page: Allows users to customize their photostrip with frame colors, filters, and stickers.
     Responsibilities:
     - Display the camera feed
     - Manage countdown timers
@@ -460,15 +464,29 @@ class Window(QWidget):
 
 #frame 
     def showFrame(window, color):
+        """
+        Updates the frame color for the photostrip.
+        """
         window.frameColor = color
         window.photostrip()
 
 #filter 
     def showFilter(window, filter):
+        """
+        Updates the filter applied to the photos in the photostrip.
+        """
         window.filter = filter
         window.photostrip()
 
     def applyFilter(window, photo):
+        """
+        applies the selected filter to the given photo.
+        Function: Takes an input photo and applies the currently selected filter to it based on the value of window.filter. The function supports multiple filters including "Regular" (no filter), "B&W" (black and white), "Vintage" (a combination of contrast, color adjustments, grain, blur, and overlay), and "2016" (a combination of blur, color adjustments, and overlay). The processed photo is then returned for use in the photostrip generation.
+
+        B&W => grayscale conversion
+        Vintage => grayscale, contrast/brightness adjustment, color tinting, grain effect, blur, and vintage overlay
+        2016 => blur, color adjustments, and overlay 
+        """
         if window.filter == "Regular":
             return photo
         elif window.filter == "B&W":
@@ -538,7 +556,9 @@ class Window(QWidget):
 
 #sticker     
     def mousePressEvent(window, event):
-
+        """
+        Mouse event handler for placing stickers on the photostrip.
+        """
         sticker = getattr(window, "currentSticker", None)
         image = getattr(window, "pixmapPhotostrip", None)
 
@@ -570,10 +590,16 @@ class Window(QWidget):
         window.showSticker(x, y)
 
     def selectSticker(window, sticker, size):    
+        """
+        Selects a sticker to be placed on the photostrip.
+        """
         window.currentSticker = sticker
         window.currentStickerSize = int(size)
 
-    def showSticker(window, x, y): 
+    def showSticker(window, x, y):
+        """
+        Places the selected sticker on the photostrip at the specified coordinates.
+        """ 
         if not hasattr(window, "currentSticker"):
             return
 
@@ -595,6 +621,9 @@ class Window(QWidget):
 
 #photostrip generation        
     def photostripHelper(window):
+        """
+        helper function to transition from camera page to customization page and generate the photostrip.
+        """
         window.stack.setCurrentIndex(2)
         window.photostrip()
 
