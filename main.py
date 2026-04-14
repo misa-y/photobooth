@@ -180,10 +180,10 @@ class Window(QWidget):
         window.stickerButtons = []
         for sticker, size in stickers:
             pixmap = QPixmap(f"{sticker}.png")
-            pixmap = pixmap.scaled(50,50, Qt.AspectRatioMode.KeepAspectRatio)
+            scaledpixmap = pixmap.scaled(50,50, Qt.AspectRatioMode.KeepAspectRatio)
             button = QPushButton()
-            button.setIcon(QIcon(pixmap))
-            button.setIconSize(pixmap.size())
+            button.setIcon(QIcon(scaledpixmap))
+            button.setIconSize(scaledpixmap.size())
             button.setStyleSheet("""background-color: transparent; border: none;""")
             button.clicked.connect(lambda checked, p=pixmap, sz=size: window.selectSticker(p, sz))
             window.layout.addWidget(button, alignment = Qt.AlignmentFlag.AlignRight)
