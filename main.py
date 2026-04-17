@@ -127,17 +127,18 @@ class Window(QWidget):
         window.startButton.clicked.connect(window.clicked)
         homeLayout.addWidget(window.startButton, alignment = Qt.AlignmentFlag.AlignCenter)
 
-        #TEST FILTER BUTTON
-        # window.testButton = QPushButton("Test Filter", window)
-        # window.layout.addWidget(window.testButton)
-        # window.testButton.clicked.connect(window.testFilter)
-
         #CAMERA PAGE (countdown, camera feed, previews)
         cameraPage = QWidget()
         cameraMainLayout = QVBoxLayout()
         cameraMainLayout.setContentsMargins(0, 0, 0, 0)
         cameraMainLayout.setSpacing(10)
         cameraPage.setLayout(cameraMainLayout)
+
+        # TEST FILTER BUTTON
+        window.testButton = QPushButton("Test Filter", cameraPage)
+        cameraMainLayout.addWidget(window.testButton)
+        window.testButton.clicked.connect(window.testFilter)
+        window.filter = "Vintage"
 
         #take pictures button
         window.pictureButton = QPushButton("Take Pictures", cameraPage)
@@ -494,14 +495,15 @@ class Window(QWidget):
             photo = cv2.cvtColor(photo, cv2.COLOR_GRAY2BGR)
             return photo
         elif window.filter == "Vintage":
-            photo = cv2.cvtColor(photo, cv2.COLOR_BGR2GRAY)
-            photo = cv2.cvtColor(photo, cv2.COLOR_GRAY2BGR)
+            grey = cv2.cvtColor(photo, cv2.COLOR_BGR2GRAY)
+            grey = cv2.cvtColor(grey, cv2.COLOR_GRAY2BGR)
+            photo = cv2.addWeighted(photo, 0.05, grey, 0.95, 0)
 
             #contrast and brightness
-            photo = cv2.convertScaleAbs(photo, alpha = 1.2, beta = 5) 
+            photo = cv2.convertScaleAbs(photo, alpha = 1.2, beta = 15) 
             photo = photo.astype(np.float32)/ 255.0
-            p10, p95 = np.percentile(photo, (10, 95))
-            photo = exposure.rescale_intensity(photo, in_range=(p10, p95))
+            p14, p95 = np.percentile(photo, (10, 95))
+            photo = exposure.rescale_intensity(photo, in_range=(p14, p95))
 
             # #coloring adjustments 
             photo[:,:,2] *= 1.1 #red
