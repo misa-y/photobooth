@@ -1,10 +1,14 @@
+import subprocess
 import threading
 
 import cv2
+import mediapipe as mp
 from matplotlib.pyplot import gray, hsv
 import numpy as np
 import time
 import sys
+
+from cvzone.HandTrackingModule import HandDetector
 
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget
 from PyQt6.QtGui import QImage, QPixmap, QIcon, QPainter
@@ -99,6 +103,10 @@ class Window(QWidget):
         mainLayout.setSpacing(0)
         mainLayout.addWidget(window.stack)
         window.setLayout(mainLayout)
+
+
+        #BRIGHTNESS ADJUSTMENT
+        window.hd = HandDetector()
 
         #HOMEPAGE (header, photobooth text, start button)
         homePage = QWidget()
@@ -338,6 +346,7 @@ class Window(QWidget):
         
         window.frame = cv2.flip(window.frame,1)
         # window.frame = window.enhanceFace(window.frame)
+        window.frame = window.adjustBrightness(window.frame)
        
         height, width, channels = window.frame.shape
         image = QImage(window.frame.data, width, height, QImage.Format.Format_BGR888)
@@ -461,6 +470,23 @@ class Window(QWidget):
     #             frame[eyeY:eyeY+eh, eyeX:eyeX+ew] = cv2.convertScaleAbs(eye_roi, alpha=1.2, beta=20)
 
     #     return frame
+
+#gesture triggered brightness adjustment
+
+    def adjustBrightness(window, frame):
+        hands, frame = window.hd.findHands(frame)
+        
+        if hands:
+            lm = hands[0]['lmList']
+            length, info, frame = window.hd.findDistance(lm[8][0:2], lm[4][0:2], frame)
+            print(f"Distance: {length}")
+
+            brightness = np.interp(length, [25, 145], [0.0, 1.0])
+            subprocess.run(["brightness", str(round(brightness, 2))], capture_output=True)
+
+    
+        return frame
+
 
 
 #frame 
