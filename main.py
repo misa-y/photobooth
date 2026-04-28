@@ -1,6 +1,3 @@
-import subprocess
-import threading
-
 import cv2
 import mediapipe as mp
 from matplotlib.pyplot import gray, hsv
@@ -8,6 +5,7 @@ import numpy as np
 import time
 import sys
 
+from AppKit import NSScreen
 from cvzone.HandTrackingModule import HandDetector
 
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget
@@ -107,6 +105,8 @@ class Window(QWidget):
 
         #BRIGHTNESS ADJUSTMENT
         window.hd = HandDetector()
+        window.brightness = 0
+        window.brightnessMode = "idle"
 
         #HOMEPAGE (header, photobooth text, start button)
         homePage = QWidget()
@@ -347,7 +347,7 @@ class Window(QWidget):
         window.frame = cv2.flip(window.frame,1)
         # window.frame = window.enhanceFace(window.frame)
         window.frame = window.adjustBrightness(window.frame)
-       
+
         height, width, channels = window.frame.shape
         image = QImage(window.frame.data, width, height, QImage.Format.Format_BGR888)
 
@@ -474,15 +474,50 @@ class Window(QWidget):
 #gesture triggered brightness adjustment
 
     def adjustBrightness(window, frame):
+
+        #LEFT HAND: 
+        #fist --> enables adjusting brightness
+        #open hand --> disables adjusting brightness, keeps it the adjusted brightness
+
+        #RIGHT HAND
+        #thumb to index finger --> #adjust brightness by changing distance between thumb and index finger (closer = darker, farther = brighter)
+        #fist --> resets brightness to default and disables adjusting brightness
+
         hands, frame = window.hd.findHands(frame)
         
         if hands:
-            lm = hands[0]['lmList']
-            length, info, frame = window.hd.findDistance(lm[8][0:2], lm[4][0:2], frame)
-            print(f"Distance: {length}")
+            rightHand = False
+            leftHand = False
 
-            brightness = np.interp(length, [25, 145], [0.0, 1.0])
-            subprocess.run(["brightness", str(round(brightness, 2))], capture_output=True)
+            for hand in hands:
+                if hand['type'] == 'Right':
+                    leftHand= True
+                elif hand['type'] == 'Left':
+                    rightHand = True
+                    
+            for hand in hands:
+                lm = hand['lmList']
+                fingers = window.hd.fingersUp(hand)
+                fist = fingers == [0,0,0,0,0]
+                open = fingers == [1,1,1,1,1]
+                
+                if hand['type'] == 'Right':
+                    if window.brightnessMode == "idle" and fist:
+                        window.brightnessMode = "adjusting"
+                    elif window.brightnessMode == "adjusting" and open and rightHand is True:
+                        window.brightnessMode = "idle"
+
+                elif hand['type'] == 'Left':
+                    rightHand = True
+                    if window.brightnessMode == "adjusting" and leftHand is True:
+                        length, info, frame = window.hd.findDistance(lm[8][0:2], lm[4][0:2], frame)
+                        target = int(np.interp(length, [25, 200], [-80, 80]))
+                        window.brightness = int(window.brightness + (target - window.brightness) * 0.12)
+                    elif window.brightnessMode == "adjusting" and fist: 
+                        window.brightness = 0
+                        window.brightnessMode = "idle"
+            
+        frame = cv2.convertScaleAbs(frame, alpha=1, beta=window.brightness)
 
     
         return frame
