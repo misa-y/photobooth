@@ -5,7 +5,6 @@ import numpy as np
 import time
 import sys
 
-from AppKit import NSScreen
 from cvzone.HandTrackingModule import HandDetector
 
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget
@@ -391,7 +390,7 @@ class Window(QWidget):
         if window.countdown > 0:
             window.countdownLabel.setText(str(window.countdown))
             if window.countdown == 1:
-                playsound('camerasound.mp3', block=False)
+                QTimer.singleShot(500, lambda: playsound('camerasound.mp3', block=False))
             window.countdown -= 1
             QTimer.singleShot(1000, window.startCountdown)
         
@@ -483,7 +482,7 @@ class Window(QWidget):
         #thumb to index finger --> #adjust brightness by changing distance between thumb and index finger (closer = darker, farther = brighter)
         #fist --> resets brightness to default and disables adjusting brightness
 
-        hands, frame = window.hd.findHands(frame)
+        hands, frame = window.hd.findHands(frame, draw=False)
         
         if hands:
             rightHand = False
