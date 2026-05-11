@@ -1,18 +1,34 @@
+from fileinput import filename
+
 import cv2
 import mediapipe as mp
 from matplotlib.pyplot import gray, hsv
 import numpy as np
 import time
 import sys
+import subprocess
 
 from cvzone.HandTrackingModule import HandDetector
 
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget
 from PyQt6.QtGui import QImage, QPixmap, QIcon, QPainter
-from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtCore import QTimer, Qt, QThread, pyqtSignal
 
 from skimage import exposure
 from playsound3 import playsound
+
+#bg class to help with printing signal
+class PrintThread(QThread):
+    done = pyqtSignal()
+   
+    def __init__(self, filename):
+            super().__init__()
+            self.filename = filename
+
+    def run(self):
+        # subprocess.run(["lpr", self.filename]) #prints
+        time.sleep(2)
+        self.done.emit() #sends signal
 
 class Window(QWidget):
     """
@@ -281,10 +297,24 @@ class Window(QWidget):
         
         customMainLayout.addWidget(rightPanel)
 
+        #PRINTING PAGE 
+        #shows "printing..." text while photostrip is being sent to the printer to print
+        printPage = QWidget()
+        printLayout = QVBoxLayout()
+        printLayout.setContentsMargins(40, 40, 40, 40)
+        printLayout.setSpacing(20)
+        printPage.setLayout(printLayout)
+
+        printingLabel = QLabel("Printing...")
+        printingLabel.setStyleSheet("color: #000000; font-size: 48px; font-weight: bold;")
+        printingLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        printLayout.addWidget(printingLabel)
+
         #ALL PAGES
         window.stack.addWidget(homePage)
         window.stack.addWidget(cameraPage)
         window.stack.addWidget(customPage)
+        window.stack.addWidget(printPage)
 
     def clicked(window):
         """
@@ -737,7 +767,10 @@ class Window(QWidget):
         timestamp = time.strftime("%Y%m%d%H%M%S")
         filename = f"photostrip_{timestamp}.png"
         cv2.imwrite(filename, window.photostripImage)
-        window.reset()
+
+        window.printThread = PrintThread(filename)
+        window.printThread.done.connect(window.reset)
+        window.printThread.start()
 
     def reset(window):
         """
