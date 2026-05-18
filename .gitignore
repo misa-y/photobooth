@@ -5,3 +5,4 @@ photostrip_*.png
 #folders
 /venv
 
+*.pth

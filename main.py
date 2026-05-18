@@ -26,8 +26,8 @@ class PrintThread(QThread):
             self.filename = filename
 
     def run(self):
-        # subprocess.run(["lpr", self.filename]) #prints
-        time.sleep(2)
+        subprocess.run(["lpr", self.filename]) #prints
+        time.sleep(8)
         self.done.emit() #sends signal
 
 class Window(QWidget):
@@ -297,18 +297,51 @@ class Window(QWidget):
         
         customMainLayout.addWidget(rightPanel)
 
+        #FACIAL ENHANCER MODEL
+        
+
         #PRINTING PAGE 
         #shows "printing..." text while photostrip is being sent to the printer to print
         printPage = QWidget()
+        printPage.setStyleSheet("background-color: #000000;")
         printLayout = QVBoxLayout()
-        printLayout.setContentsMargins(40, 40, 40, 40)
-        printLayout.setSpacing(20)
+        printLayout.setContentsMargins(0, 0, 0, 0)
+        printLayout.setSpacing(0)
         printPage.setLayout(printLayout)
 
-        printingLabel = QLabel("Printing...")
-        printingLabel.setStyleSheet("color: #000000; font-size: 48px; font-weight: bold;")
+        printLayout.addSpacing(100)
+
+        window.mascotLabel = QLabel()
+        window.mascotLabel.setStyleSheet("background-color: #febe15; border-radius:10px; padding:20px;")
+        mascotPixmap = QPixmap("mascot.png")
+        scaledMascot = mascotPixmap.scaled(200, 200, Qt.AspectRatioMode.KeepAspectRatio)
+        window.mascotLabel.setPixmap(scaledMascot)
+        window.mascotLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        printLayout.addWidget(window.mascotLabel)
+
+        printLayout.addSpacing(20)
+
+        asijLabel = QLabel("ASIJ Photobooth")
+        asijLabel.setStyleSheet("color: #febe15; font-size: 75px; font-weight: bold;")
+        asijLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        printLayout.addWidget(asijLabel)
+
+        printLayout.addSpacing(10)
+
+        printingLabel = QLabel("Your photostrip is printing...")
+        printingLabel.setStyleSheet("color: #ffffff; font-size: 36px;")
         printingLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         printLayout.addWidget(printingLabel)
+
+        printLayout.addSpacing(20)
+
+        #loading dots
+        window.dotsLabel = QLabel("●")
+        window.dotsLabel.setStyleSheet("color: #febe15; font-size: 24px;")
+        window.dotsLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        printLayout.addWidget(window.dotsLabel)
+
+        printLayout.addSpacing(20)
 
         #ALL PAGES
         window.stack.addWidget(homePage)
@@ -374,7 +407,7 @@ class Window(QWidget):
             return
         
         window.frame = cv2.flip(window.frame,1)
-        # window.frame = window.enhanceFace(window.frame)
+        window.frame = window.enhanceFace(window.frame)
         window.frame = window.adjustBrightness(window.frame)
 
         height, width, channels = window.frame.shape
@@ -477,31 +510,11 @@ class Window(QWidget):
         window.startCountdown()
 
 #facial enhancer
-    # def enhanceFace(window, frame):
-    #     window.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-    #     window.eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
+    def enhanceFace(window, frame):
 
-    #     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    #     faces = window.face_cascade.detectMultiScale(frame, scaleFactor=1.2, minNeighbors=5)
-        
-    #     for (x, y, w, h) in faces:
-    #         face = gray[y:y+h, x:x+w]
-    #         face_eyes = gray[y : y + (h // 2), x : x + w]
-    #         eyes = window.eye_cascade.detectMultiScale(face_eyes)
-
-    #         #eye enhancer
-    #         for (ex, ey, ew, eh) in eyes:
-    #             eyeX = x + ex
-    #             eyeY = y + ey
-    #             radius = int(max(ew, eh) * 0.75)
-                
-    #             eye_roi = frame[eyeY:eyeY+eh, eyeX:eyeX+ew]
-    #             frame[eyeY:eyeY+eh, eyeX:eyeX+ew] = cv2.convertScaleAbs(eye_roi, alpha=1.2, beta=20)
-
-    #     return frame
+        return frame
 
 #gesture triggered brightness adjustment
-
     def adjustBrightness(window, frame):
 
         #LEFT HAND: 
@@ -550,8 +563,6 @@ class Window(QWidget):
 
     
         return frame
-
-
 
 #frame 
     def showFrame(window, color):
@@ -768,9 +779,34 @@ class Window(QWidget):
         filename = f"photostrip_{timestamp}.png"
         cv2.imwrite(filename, window.photostripImage)
 
+        window.stack.setCurrentIndex(3)
+
+        window.mascotFrame = 0
+        window.dotsCount = 0
+
+        window.mascotTimer = QTimer()
+        window.mascotTimer.timeout.connect(window.animateMascot)
+        window.mascotTimer.start(500)
+
+        window.dotsTimer = QTimer()
+        window.dotsTimer.timeout.connect(window.animateDots)
+        window.dotsTimer.start(500)
+
         window.printThread = PrintThread(filename)
         window.printThread.done.connect(window.reset)
         window.printThread.start()
+
+    def animateMascot(window):
+        mascots = ["mascot.png", "mascot2.png"]
+        window.mascotFrame = (window.mascotFrame + 1) % 2
+        pixmap = QPixmap(mascots[window.mascotFrame])
+        scaledMascot = pixmap.scaled(200, 200, Qt.AspectRatioMode.KeepAspectRatio)
+        window.mascotLabel.setPixmap(scaledMascot)
+
+    def animateDots(window):
+        dots = ["●", "● ●", "● ● ●"]
+        window.dotsCount = (window.dotsCount + 1) % 3
+        window.dotsLabel.setText(dots[window.dotsCount])
 
     def reset(window):
         """
