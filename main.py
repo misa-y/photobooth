@@ -93,7 +93,7 @@ class Window(QWidget):
          - The GUI is fully initialized and ready for user interaction.
         """
         super().__init__()
-
+        
         window.photo_count = 0 #total number of photostrips
         window.photos = [] #array to save filenames for photostrip generation
         window.captureIndex = 0 #number of photos taken in current photostrip
@@ -133,7 +133,7 @@ class Window(QWidget):
         #top header
         window.header= QLabel("ASIJ") 
         window.header.setStyleSheet("""background-color: #000000; color: #febe15; font-size: 26px; font-weight: bold; padding: 4px 10px;""")
-        window.header.setFixedHeight(40)
+        window.header.setFixedHeight(60)
         homeLayout.addWidget(window.header)
 
         homeLayout.addSpacing(260)
@@ -146,7 +146,7 @@ class Window(QWidget):
 
         #start button
         window.startButton = QPushButton("Start", window)
-        window.startButton.setStyleSheet("""font-size: 34px; padding: 12px 48px; background-color: #febe15; color: white; border: none; border-radius: 0px;""")
+        window.startButton.setStyleSheet("""QPushButton{background-color: #febe15; color: white; font-size: 34px; font-weight: bold; padding: 12px} QPushButton:hover{background-color: #ffcc33;}""")
         window.startButton.clicked.connect(window.clicked)
         homeLayout.addWidget(window.startButton, alignment = Qt.AlignmentFlag.AlignCenter)
 
@@ -158,10 +158,10 @@ class Window(QWidget):
         cameraPage.setLayout(cameraMainLayout)
 
         # TEST FILTER BUTTON
-        window.testButton = QPushButton("Test Filter", cameraPage)
-        cameraMainLayout.addWidget(window.testButton)
-        window.testButton.clicked.connect(window.testFilter)
-        window.filter = "Vintage"
+        # window.testButton = QPushButton("Test Filter", cameraPage)
+        # cameraMainLayout.addWidget(window.testButton)
+        # window.testButton.clicked.connect(window.testFilter)
+        # window.filter = "Regular"
 
         #take pictures button
         window.pictureButton = QPushButton("Take Pictures", cameraPage)
@@ -182,6 +182,7 @@ class Window(QWidget):
   
         #image label
         window.imageLabel = QLabel() #widget to display camera feed and previews
+        window.imageLabel.setStyleSheet("background-color: black; border-radius: 26px; border: 4px solid #febe15; padding: 8px;""")
         window.imageLabel.setFixedSize(867, 714)
         cameraMainLayout.addWidget(window.imageLabel, alignment = Qt.AlignmentFlag.AlignCenter)
 
@@ -207,9 +208,10 @@ class Window(QWidget):
 
         #right panel (customization options)
         rightPanel = QWidget()
+        rightPanel.setStyleSheet("background-color: #ffffff; border-radius: 24px; padding: 20px;") 
         rightLayout = QVBoxLayout()
         rightLayout.setContentsMargins(50, 40, 50, 40)
-        rightLayout.setSpacing(10)
+        rightLayout.setSpacing(24)
         rightPanel.setLayout(rightLayout)
 
         #next button
@@ -257,7 +259,7 @@ class Window(QWidget):
         window.filterButtons = []
         for filter in filters:
             button = QPushButton(filter, cameraPage)
-            button.setStyleSheet("""font-size: 18px; padding: 5px; background-color: #ffffff; color: #000000; border: 1px solid #000000; border-radius: 4px;""")
+            button.setStyleSheet("QPushButton {background-color: white; color: black; border: 2px solid #dddddd; border-radius: 12px; padding: 10px 18px; font-size: 16px;} QPushButton:hover {border: 2px solid #febe15;}")
             button.clicked.connect(lambda checked, f=filter: window.showFilter(f))
             filterRow.addWidget(button)
             window.filterButtons.append(button)
@@ -303,7 +305,7 @@ class Window(QWidget):
         #PRINTING PAGE 
         #shows "printing..." text while photostrip is being sent to the printer to print
         printPage = QWidget()
-        printPage.setStyleSheet("background-color: #000000;")
+        printPage.setStyleSheet("background-color: #ffffff;")
         printLayout = QVBoxLayout()
         printLayout.setContentsMargins(0, 0, 0, 0)
         printLayout.setSpacing(0)
@@ -321,6 +323,7 @@ class Window(QWidget):
 
         printLayout.addSpacing(20)
 
+        #asij label text
         asijLabel = QLabel("ASIJ Photobooth")
         asijLabel.setStyleSheet("color: #febe15; font-size: 75px; font-weight: bold;")
         asijLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -328,8 +331,9 @@ class Window(QWidget):
 
         printLayout.addSpacing(10)
 
+        #printing... text
         printingLabel = QLabel("Your photostrip is printing...")
-        printingLabel.setStyleSheet("color: #ffffff; font-size: 36px;")
+        printingLabel.setStyleSheet("color: #000000; font-size: 36px;")
         printingLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         printLayout.addWidget(printingLabel)
 
@@ -511,9 +515,10 @@ class Window(QWidget):
 
 #facial enhancer
     def enhanceFace(window, frame):
-
+        
         return frame
 
+    def 
 #gesture triggered brightness adjustment
     def adjustBrightness(window, frame):
 
@@ -564,6 +569,33 @@ class Window(QWidget):
     
         return frame
 
+    def liveFilter(window, frame):
+        #rock sign --> sunglasses
+        #heart sign --> anime sparkles
+        #two thumbs up --> confetti effect
+        #two peace signs --> doggy filter
+
+        hands, frame = window.hd.findHands(frame, draw=False)
+        
+        for hand in hands:
+            fingers = window.hd.fingersUp(hand)
+
+            peace = fingers == [0,1,1,0,0]
+            rock = fingers == [0,1,0,0,1]
+            thumbs = fingers == [1,0,0,0,0]
+
+            
+            
+        frame = cv2.convertScaleAbs(frame, alpha=1, beta=window.brightness)
+        return frame
+
+    def detectHeart(window, hands, frame):
+        if len(hands) != 2:
+            return False
+        
+        hand1 = hands[0]
+        hand2 = hands[1]
+        
 #frame 
     def showFrame(window, color):
         """
