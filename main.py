@@ -100,6 +100,7 @@ class Window(QWidget):
         window.countdown = 3 #7 seconds between each picture
         window.frameColor = (255,255,255) #default photostrip frame color is white
         window.filter = "Regular" #default filter is none
+        window.mode = "regular"
     
         window.video = None
         window.setWindowTitle("Photobooth")
@@ -116,7 +117,6 @@ class Window(QWidget):
         mainLayout.setSpacing(0)
         mainLayout.addWidget(window.stack)
         window.setLayout(mainLayout)
-
 
         #BRIGHTNESS ADJUSTMENT
         window.hd = HandDetector()
@@ -162,7 +162,7 @@ class Window(QWidget):
         # cameraMainLayout.addWidget(window.testButton)
         # window.testButton.clicked.connect(window.testFilter)
         # window.filter = "Regular"
-
+       
         #take pictures button
         window.pictureButton = QPushButton("Take Pictures", cameraPage)
         window.pictureButton.setStyleSheet("""font-size: 18px; padding: 8px 36px; background-color: #fdbe15; color: #ffffff; border: none; border-radius: 0px;""")
@@ -170,6 +170,13 @@ class Window(QWidget):
         window.pictureButton.setHidden(True)
         cameraMainLayout.addSpacing(10)
         cameraMainLayout.addWidget(window.pictureButton, alignment = Qt.AlignmentFlag.AlignCenter)
+
+        #mode button
+        window.modeButton = QPushButton("Regular", cameraPage)
+        window.modeButton.setStyleSheet("""QPushButton {font-size: 18px; padding: 8x 36px; background-color: #000000; color:white; border: none; border-radius 6px;} QPushButton:hover {background-color: #222222;}""")
+        window.modeButton.clicked.connect(window.toggleMode)
+        
+        cameraMainLayout.addWidget(window.modeButton, alignment = Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
 
         #countdown label
         window.countdownLabel = QLabel("") 
@@ -185,7 +192,7 @@ class Window(QWidget):
         window.imageLabel.setStyleSheet("background-color: black; border-radius: 26px; border: 4px solid #febe15; padding: 8px;""")
         window.imageLabel.setFixedSize(867, 714)
         cameraMainLayout.addWidget(window.imageLabel, alignment = Qt.AlignmentFlag.AlignCenter)
-
+                                        
         #CUSTOM PAGE (frame, filter, sticker options)
         customPage = QWidget()
         customMainLayout = QHBoxLayout()
@@ -412,7 +419,12 @@ class Window(QWidget):
         
         window.frame = cv2.flip(window.frame,1)
         window.frame = window.enhanceFace(window.frame)
-        window.frame = window.adjustBrightness(window.frame)
+
+        if window.mode == "regular":
+            window.frame = window.adjustBrightness(window.frame)
+
+        if window.mode == "filters":
+            window.frame = window.liveFilter(window.frame)
 
         height, width, channels = window.frame.shape
         image = QImage(window.frame.data, width, height, QImage.Format.Format_BGR888)
@@ -513,12 +525,35 @@ class Window(QWidget):
         window.timer.start(30)
         window.startCountdown()
 
+    def toggleMode(window):
+        if window.mode == "regular":
+            window.mode = "filters"
+            window.modeButton.setText("Filters")
+        else:
+            window.mode = "regular"
+            window.modeButton.setText("Regular")
+
 #facial enhancer
     def enhanceFace(window, frame):
         
         return frame
 
-    def 
+    def sunglass(window, frame):
+        print("sunglasses filter applied")
+        return frame
+    
+    def sparkle(window, frame):
+        print("sparkle filter applied")
+        return frame
+    
+    def confetti(window, frame):
+        print("confetti filter applied")
+        return frame
+    
+    def doggy(window, frame):
+        print("doggy filter applied")
+        return frame
+
 #gesture triggered brightness adjustment
     def adjustBrightness(window, frame):
 
@@ -570,32 +605,63 @@ class Window(QWidget):
         return frame
 
     def liveFilter(window, frame):
-        #rock sign --> sunglasses
-        #heart sign --> anime sparkles
+        #two rock signs --> sunglasses
+        #two mini heart signs --> anime sparkles
         #two thumbs up --> confetti effect
         #two peace signs --> doggy filter
 
         hands, frame = window.hd.findHands(frame, draw=False)
         
-        for hand in hands:
-            fingers = window.hd.fingersUp(hand)
-
-            peace = fingers == [0,1,1,0,0]
-            rock = fingers == [0,1,0,0,1]
-            thumbs = fingers == [1,0,0,0,0]
-
-            
-            
-        frame = cv2.convertScaleAbs(frame, alpha=1, beta=window.brightness)
-        return frame
-
-    def detectHeart(window, hands, frame):
-        if len(hands) != 2:
-            return False
+        if len(hands) <2:
+            return frame
         
         hand1 = hands[0]
         hand2 = hands[1]
+
+        fingers1 = window.hd.fingersUp(hand1)
+        fingers2 = window.hd.fingersUp(hand2)
+
+        peace = fingers1 == [0,1,1,0,0] and fingers2 == [0,1,1,0,0]
+        rock = fingers1 == [0,1,0,0,1] and fingers2 == [0,1,0,0,1]
+        thumbs = fingers1 == [1,0,0,0,0] and fingers2 == [1,0,0,0,0]
+        hearts = window.detectHearts(hands, frame)
+
+        if rock:
+            frame = window.sunglass(frame)
+        elif hearts:
+            frame = window.sparkle(frame)
+        elif thumbs:
+            frame = window.confetti(frame)
+        elif peace:
+            frame = window.doggy(frame)
         
+        frame = cv2.convertScaleAbs(frame, alpha=1, beta=window.brightness)
+        return frame
+
+    def detectHearts(window, hands, frame):
+        if len(hands) < 2:
+            return False
+        
+        heartCount = 0
+
+        for hand in hands [:2]:
+            lm = hand['lmList']
+            fingers = window.hd.fingersUp(hand)
+
+            wrist = lm[0][0:2]
+            thumbTip = lm[4][0:2]
+            index = lm[8][0:2]
+            middle = lm[9][0:2]
+
+            handSize = np.hypot(wrist[0]-middle[0], wrist[1]-middle[1])
+            thumbIndexDist = np.hypot(thumbTip[0]-index[0], thumbTip[1]-index[1])
+
+            miniHeart = (fingers == [1,1,0,0,0] and thumbIndexDist)
+            if miniHeart:
+                heartCount += 1
+
+        return heartCount == 2
+
 #frame 
     def showFrame(window, color):
         """
