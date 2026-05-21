@@ -179,7 +179,7 @@ class Window(QWidget):
         cameraMainLayout.addWidget(window.modeButton, alignment = Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
 
         #face mesh
-        window.faceMesh = mp.solutions.face_mesh.FaceMesh(static_image_mode=False, max_num_faces=1, min_detection_confidence=0.5, min_tracking_confidence=0.5)
+        window.faceMesh = mp.solutions.face_mesh.FaceMesh(static_image_mode=False, max_num_faces=4, min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
         window.sunglasses = cv2.imread("sunglasses.png", cv2.IMREAD_UNCHANGED)
         window.mustangEars = cv2.imread("mustang_ears.png", cv2.IMREAD_UNCHANGED)
@@ -564,8 +564,30 @@ class Window(QWidget):
         return frame
     
     def sunglass(window, frame):
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = window.faceMesh.process(rgb)
+
+        if not results.multi_face_landmarks:
+            return frame
         
-        frame = window.overlay(frame, window.sunglasses, 250, 250, 400, 150)
+        h,w,c = frame.shape
+        
+        for face in results.multi_face_landmarks:
+            leftEye = face.landmark[33]
+            rightEye = face.landmark[263]
+            nose = face.landmark[168]
+
+            leftX = int(leftEye.x * w)
+            rightX = int(rightEye.x * w)
+            noseX = int(nose.x * w)
+            noseY = int(nose.y * h)
+
+            glassesWidth = int((rightX - leftX) * 1.75) #wider/narrower
+            glassesHeight = int(glassesWidth * 0.5) #taller/shorter
+            x = int(noseX-glassesWidth/2) #left/right
+            y = int(noseY-glassesHeight/2+60) #up/down 
+            frame = window.overlay(frame, window.sunglasses, x, y, glassesWidth, glassesHeight)
+        
         print("sunglasses filter applied")
         return frame
     
@@ -578,6 +600,42 @@ class Window(QWidget):
         return frame
    
     def horse(window, frame):
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = window.faceMesh.process(rgb)
+
+        if not results.multi_face_landmarks:
+            return frame
+        
+        h,w,c = frame.shape
+        
+        for face in results.multi_face_landmarks:
+            leftEye = face.landmark[33]
+            rightEye = face.landmark[263]
+            forehead = face.landmark[10]
+            nose = face.landmark[1]
+
+            leftX = int(leftEye.x * w)
+            rightX = int(rightEye.x * w)
+            foreheadX = int(forehead.x * w)
+            foreheadY = int(forehead.y * h)
+            noseX = int(nose.x * w)
+            noseY = int(nose.y * h)
+
+            faceWidth = abs(rightX - leftX)
+            
+            earsWidth = int(faceWidth * 2.4) #wider/narrower for ears
+            earsHeight = int(earsWidth * 0.6) #taller/shorter for ears
+            earsX = int(foreheadX - earsWidth/2) #left/right
+            earsY = int(foreheadY - earsHeight*0.78) #up/down
+
+            noseWidth = int(faceWidth * 0.65) #wider/narrower for nose
+            noseHeight = int(noseWidth * 0.65) #taller/shorter for nose
+            noseX = int(noseX - noseWidth/2) #left/right
+            noseY = int(noseY - noseHeight/2-40) #up/down
+            
+            frame = window.overlay(frame, window.mustangEars, earsX, earsY, earsWidth, earsHeight)
+            frame = window.overlay(frame, window.mustangNose, noseX, noseY, noseWidth, noseHeight)
+        
         print("horse filter applied")
         return frame
 
