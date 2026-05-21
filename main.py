@@ -178,6 +178,13 @@ class Window(QWidget):
         
         cameraMainLayout.addWidget(window.modeButton, alignment = Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
 
+        #face mesh
+        window.faceMesh = mp.solutions.face_mesh.FaceMesh(static_image_mode=False, max_num_faces=1, min_detection_confidence=0.5, min_tracking_confidence=0.5)
+
+        window.sunglasses = cv2.imread("sunglasses.png", cv2.IMREAD_UNCHANGED)
+        window.mustangEars = cv2.imread("mustang_ears.png", cv2.IMREAD_UNCHANGED)
+        window.mustangNose = cv2.imread("mustang_nose.png", cv2.IMREAD_UNCHANGED)
+
         #countdown label
         window.countdownLabel = QLabel("") 
         window.countdownLabel.setStyleSheet("""color: #000000; font-size: 30px; font-weight:380; padding: 10px;""")
@@ -533,12 +540,32 @@ class Window(QWidget):
             window.mode = "regular"
             window.modeButton.setText("Regular")
 
-#facial enhancer
+#facial enhancer/ live feed filters
     def enhanceFace(window, frame):
         
         return frame
 
+    def overlay(window, frame, overlay, x, y, width, height):
+        overlay = cv2.resize(overlay, (width, height))
+
+        h, w, c = frame.shape
+
+        if x < 0 or y < 0 or x + width > w or y + height > h:
+            return frame
+        
+        if overlay.shape[2] == 4:
+            transparency = overlay[:, :, 3] / 255.0
+
+            for c in range(0, 3):
+                frame[y:y+height, x:x+width, c] = (transparency*overlay[:, :, c] + (1-transparency) * frame[y:y+height, x:x+width, c])
+        else:
+            frame[y:y+height, x:x+width] = overlay
+        
+        return frame
+    
     def sunglass(window, frame):
+        
+        frame = window.overlay(frame, window.sunglasses, 250, 250, 400, 150)
         print("sunglasses filter applied")
         return frame
     
@@ -549,9 +576,9 @@ class Window(QWidget):
     def confetti(window, frame):
         print("confetti filter applied")
         return frame
-    
-    def doggy(window, frame):
-        print("doggy filter applied")
+   
+    def horse(window, frame):
+        print("horse filter applied")
         return frame
 
 #gesture triggered brightness adjustment
@@ -608,7 +635,10 @@ class Window(QWidget):
         #two rock signs --> sunglasses
         #two mini heart signs --> anime sparkles
         #two thumbs up --> confetti effect
-        #two peace signs --> doggy filter
+        #two peace signs --> (mustang) horse filter
+
+        #sunglasses + horse: facial overlays
+        #confettit + sparkles: animated effects
 
         hands, frame = window.hd.findHands(frame, draw=False)
         
@@ -633,7 +663,7 @@ class Window(QWidget):
         elif thumbs:
             frame = window.confetti(frame)
         elif peace:
-            frame = window.doggy(frame)
+            frame = window.horse(frame)
         
         frame = cv2.convertScaleAbs(frame, alpha=1, beta=window.brightness)
         return frame
