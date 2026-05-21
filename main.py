@@ -430,7 +430,7 @@ class Window(QWidget):
         if window.mode == "regular":
             window.frame = window.adjustBrightness(window.frame)
 
-        if window.mode == "filters":
+        elif window.mode == "filters":
             window.frame = window.liveFilter(window.frame)
 
         height, width, channels = window.frame.shape
@@ -723,7 +723,6 @@ class Window(QWidget):
         elif peace:
             frame = window.horse(frame)
         
-        frame = cv2.convertScaleAbs(frame, alpha=1, beta=window.brightness)
         return frame
 
     def detectHearts(window, hands, frame):
