@@ -184,7 +184,12 @@ class Window(QWidget):
         window.sunglasses = cv2.imread("sunglasses.png", cv2.IMREAD_UNCHANGED)
         window.mustangEars = cv2.imread("mustang_ears.png", cv2.IMREAD_UNCHANGED)
         window.mustangNose = cv2.imread("mustang_nose.png", cv2.IMREAD_UNCHANGED)
-
+        window.blush = cv2.imread("blush.png", cv2.IMREAD_UNCHANGED)
+        window.confettiPieces = []
+        window.makeConfetti()
+        window.activeEffect = None
+        window.effectTimer = 0
+        
         #countdown label
         window.countdownLabel = QLabel("") 
         window.countdownLabel.setStyleSheet("""color: #000000; font-size: 30px; font-weight:380; padding: 10px;""")
@@ -592,10 +597,92 @@ class Window(QWidget):
         return frame
     
     def sparkle(window, frame):
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = window.faceMesh.process(rgb)
+        
+        if not results.multi_face_landmarks:
+            return frame
+        
+        h,w,c = frame.shape
+
+        for face in results.multi_face_landmarks:
+            leftEyeOut = face.landmark[33]
+            leftEyeIn = face.landmark[133]
+            rightEyeIn = face.landmark[362]
+            rightEyeOut = face.landmark[263]
+
+            leftEyeX = int((leftEyeOut.x + leftEyeIn.x)/2 * w)
+            leftEyeY = int((leftEyeOut.y + leftEyeIn.y)/2 * h)
+            rightEyeX = int((rightEyeOut.x + rightEyeIn.x)/2 * w)
+            rightEyeY = int((rightEyeOut.y + rightEyeIn.y)/2 * h)
+
+            eyeDist = abs(rightEyeX - leftEyeX)
+            starSize = max(8, int(eyeDist * 0.01)) #size of sparkles
+            
+            blushWidth = int(eyeDist * 0.55)
+            blushHeight = int(blushWidth * 0.6)
+            leftBlushX = int(leftEyeX - blushWidth/2 - eyeDist * 0.15)
+            leftBlushY = int(leftEyeY + eyeDist *0.25)
+            rightBlushX = int(rightEyeX - blushWidth/2 + eyeDist * 0.15)
+            rightBlushY = int(rightEyeY + eyeDist *0.25)
+
+            frame = window.overlay(frame, window.blush, leftBlushX, leftBlushY, blushWidth, blushHeight)
+            frame = window.overlay(frame, window.blush, rightBlushX, rightBlushY, blushWidth, blushHeight) 
+
+            window.drawStar(frame, leftEyeX, leftEyeY, starSize, (255,255,255))
+            window.drawStar(frame, rightEyeX, rightEyeY, starSize, (255,255,255))
+
+            window.drawStar(frame, leftEyeX - starSize * 3, leftEyeY - starSize *2, starSize//2, (255, 170, 255))
+            window.drawStar(frame, rightEyeX + starSize * 3, rightEyeY - starSize *2, starSize//2, (255, 170, 255))
+
         print("sparkle filter applied")
         return frame
-    
+
+    def drawStar(window, frame, x, y, size, color):
+        cv2.line(frame, (x, y - size), (x, y + size), color, 2)
+        cv2.line(frame, (x - size, y), (x + size, y), color, 2)
+        cv2.line(frame, (x - size//2, y - size//2), (x + size//2, y + size//2), color, 2)
+        cv2.line(frame, (x - size//2, y + size//2), (x + size//2, y - size//2), color, 2)
+
+    def makeConfetti(window):
+        colors = [(0,0,0), (255,255,255), (21,190,253)]
+        window.confettiPieces = []
+
+        for index in range(75):
+            piece = {
+            "x": np.random.randint(0, 867),
+            "y": np.random.randint(-714, 0),
+            "speed": np.random.randint(6,10),
+            "size": np.random.randint(10,16),
+            "color": colors[np.random.randint(0, len(colors))],
+            "drift": np.random.randint(-2, 3)
+            }
+
+            window.confettiPieces.append(piece)
+
     def confetti(window, frame):
+        h,w,c = frame.shape
+
+        for piece in window.confettiPieces:
+            x = piece["x"]
+            y = piece["y"]
+            size = piece["size"]
+            color = piece["color"]
+
+            if piece["drift"]==0:
+                cv2.circle(frame, (x,y), size//2, color, -1)
+            else:
+                cv2.rectangle(frame, (x,y), (x+size, y+size//2), color, -1)
+            
+            piece["y"] += piece["speed"]
+            piece["x"] += piece["drift"]
+
+            if piece["y"]>h or piece["x"]<0 or piece["x"]>w:
+                piece["x"] = np.random.randint(0,w)
+                piece["y"] = np.random.randint(-100, 0)
+                piece["speed"] = np.random.randint(2,8)
+                piece["drift"] = np.random.randint(-2, 4)
+
         print("confetti filter applied")
         return frame
    
@@ -700,28 +787,37 @@ class Window(QWidget):
 
         hands, frame = window.hd.findHands(frame, draw=False)
         
-        if len(hands) <2:
-            return frame
-        
-        hand1 = hands[0]
-        hand2 = hands[1]
+        if len(hands) >=2:
+            hand1 = hands[0]
+            hand2 = hands[1]
 
-        fingers1 = window.hd.fingersUp(hand1)
-        fingers2 = window.hd.fingersUp(hand2)
+            fingers1 = window.hd.fingersUp(hand1)
+            fingers2 = window.hd.fingersUp(hand2)
 
-        peace = fingers1 == [0,1,1,0,0] and fingers2 == [0,1,1,0,0]
-        rock = fingers1 == [0,1,0,0,1] and fingers2 == [0,1,0,0,1]
-        thumbs = fingers1 == [1,0,0,0,0] and fingers2 == [1,0,0,0,0]
-        hearts = window.detectHearts(hands, frame)
+            peace = fingers1 == [0,1,1,0,0] and fingers2 == [0,1,1,0,0]
+            rock = fingers1 == [0,1,0,0,1] and fingers2 == [0,1,0,0,1]
+            thumbs = fingers1 == [1,0,0,0,0] and fingers2 == [1,0,0,0,0]
+            hearts = window.detectHearts(hands, frame)
 
-        if rock:
-            frame = window.sunglass(frame)
-        elif hearts:
-            frame = window.sparkle(frame)
-        elif thumbs:
-            frame = window.confetti(frame)
-        elif peace:
-            frame = window.horse(frame)
+            if rock:
+                frame = window.sunglass(frame)
+            elif peace:
+                frame = window.horse(frame)
+            
+            elif thumbs:
+                window.activeEffect = "confetti"
+                window.effectTimer = 60
+            elif hearts:
+                window.activeEffect = "sparkle"
+                window.effectTimer = 60
+
+        if window.effectTimer > 0:
+            if window.activeEffect == "confetti":
+                frame = window.confetti(frame)
+            elif window.activeEffect == "sparkle":
+                frame = window.sparkle(frame)
+
+            window.effectTimer -= 1
         
         return frame
 
@@ -1047,5 +1143,3 @@ def main():
 #run
 if __name__ == "__main__":
     main()
-
-
