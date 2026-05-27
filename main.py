@@ -150,6 +150,21 @@ class Window(QWidget):
         window.startButton.clicked.connect(window.clicked)
         homeLayout.addWidget(window.startButton, alignment = Qt.AlignmentFlag.AlignCenter)
 
+        #MODE PAGE (select between regular, lighting adjustment, and filters)
+        modePage = QWidget()
+        modeLayout = QVBoxLayout()
+        modeLayout.setContentsMargins(70, 60, 70, 60)
+        modeLayout.setSpacing(25)
+        modePage.setLayout(modeLayout)        
+                                      
+        modeTitle = QLabel("Select Mode")
+        modeTitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        modeTitle.setStyleSheet("""color: #000000; font-size: 36px; font-weight: bold;""")
+        modeLayout.addWidget(modeTitle)
+
+        
+       
+       
         #CAMERA PAGE (countdown, camera feed, previews)
         cameraPage = QWidget()
         cameraMainLayout = QVBoxLayout()
@@ -783,7 +798,7 @@ class Window(QWidget):
         #two peace signs --> (mustang) horse filter
 
         #sunglasses + horse: facial overlays
-        #confettit + sparkles: animated effects
+        #confettit + sparkles: opencv drawings 
 
         hands, frame = window.hd.findHands(frame, draw=False)
         
