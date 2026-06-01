@@ -162,9 +162,41 @@ class Window(QWidget):
         modeTitle.setStyleSheet("""color: #000000; font-size: 36px; font-weight: bold;""")
         modeLayout.addWidget(modeTitle)
 
-        
-       
-       
+        divider = QLabel()
+        divider.setFixedHeight(1)
+        divider.setStyleSheet("background-color: #000000;")
+        modeLayout.addWidget(divider)
+
+        modeLayout.addSpacing(10)
+
+        cards= QHBoxLayout()
+        cards.setSpacing(20)
+
+        modes = [("Regular", "regular"), ("Light Adjustment", "brightness"), ("Filters", "filters")]
+
+        for label, mode in modes:
+            card = QPushButton()
+            card.setFixedSize(400,650)
+            card.setStyleSheet("""QPushButton{border: 2px solid #000000; border-radius: 0px; background-color: #ffffff;}""")
+            cardLayout = QVBoxLayout()
+            cardLayout.setContentsMargins(0, 0, 0, 0)
+            cardLayout.setSpacing(0)
+            card.setLayout(cardLayout)
+
+            cardLayout.addSpacing(550)
+
+            cardLabel = QLabel(label)
+            cardLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            cardLabel.setFixedHeight(100)
+            cardLabel.setStyleSheet("""background-color: #febe15; color: #000000; font-size: 24px; font-weight: 500; border: none;""")
+
+            cardLayout.addWidget(cardLabel)
+            cards.addWidget(card)
+
+            card.clicked.connect(lambda checked, m=mode: window.selectMode(m))
+
+        modeLayout.addLayout(cards)
+           
         #CAMERA PAGE (countdown, camera feed, previews)
         cameraPage = QWidget()
         cameraMainLayout = QVBoxLayout()
@@ -185,13 +217,6 @@ class Window(QWidget):
         window.pictureButton.setHidden(True)
         cameraMainLayout.addSpacing(10)
         cameraMainLayout.addWidget(window.pictureButton, alignment = Qt.AlignmentFlag.AlignCenter)
-
-        #mode button
-        window.modeButton = QPushButton("Regular", cameraPage)
-        window.modeButton.setStyleSheet("""QPushButton {font-size: 18px; padding: 8x 36px; background-color: #000000; color:white; border: none; border-radius 6px;} QPushButton:hover {background-color: #222222;}""")
-        window.modeButton.clicked.connect(window.toggleMode)
-        
-        cameraMainLayout.addWidget(window.modeButton, alignment = Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
 
         #face mesh
         window.faceMesh = mp.solutions.face_mesh.FaceMesh(static_image_mode=False, max_num_faces=4, min_detection_confidence=0.5, min_tracking_confidence=0.5)
@@ -382,10 +407,11 @@ class Window(QWidget):
         printLayout.addSpacing(20)
 
         #ALL PAGES
-        window.stack.addWidget(homePage)
-        window.stack.addWidget(cameraPage)
-        window.stack.addWidget(customPage)
-        window.stack.addWidget(printPage)
+        window.stack.addWidget(homePage) #0
+        window.stack.addWidget(modePage) #1
+        window.stack.addWidget(cameraPage) #2
+        window.stack.addWidget(customPage) #3
+        window.stack.addWidget(printPage) #4
 
     def clicked(window):
         """
@@ -394,7 +420,6 @@ class Window(QWidget):
          Function: Hides the welcome message and start button, then initializes the camera system.
         """
         window.stack.setCurrentIndex(1)       
-        window.startCamera()
 
     def startCamera(window):
         """
@@ -448,8 +473,9 @@ class Window(QWidget):
         window.frame = window.enhanceFace(window.frame)
 
         if window.mode == "regular":
+            pass
+        elif window.mode == "brightness":
             window.frame = window.adjustBrightness(window.frame)
-
         elif window.mode == "filters":
             window.frame = window.liveFilter(window.frame)
 
@@ -552,13 +578,10 @@ class Window(QWidget):
         window.timer.start(30)
         window.startCountdown()
 
-    def toggleMode(window):
-        if window.mode == "regular":
-            window.mode = "filters"
-            window.modeButton.setText("Filters")
-        else:
-            window.mode = "regular"
-            window.modeButton.setText("Regular")
+    def selectMode(window, mode):
+        window.mode = mode
+        window.stack.setCurrentIndex(2)
+        window.startCamera()
 
 #facial enhancer/ live feed filters
     def enhanceFace(window, frame):
@@ -1023,7 +1046,7 @@ class Window(QWidget):
         """
         helper function to transition from camera page to customization page and generate the photostrip.
         """
-        window.stack.setCurrentIndex(2)
+        window.stack.setCurrentIndex(3)
         window.photostrip()
 
     def photostrip(window):
@@ -1075,7 +1098,7 @@ class Window(QWidget):
         filename = f"photostrip_{timestamp}.png"
         cv2.imwrite(filename, window.photostripImage)
 
-        window.stack.setCurrentIndex(3)
+        window.stack.setCurrentIndex(4)
 
         window.mascotFrame = 0
         window.dotsCount = 0
