@@ -23,6 +23,19 @@ from PyQt6.QtCore import QTimer, Qt, QThread, pyqtSignal
 from skimage import exposure
 from playsound3 import playsound
 
+#layout helper functions
+def vbox(margins=(0,0,0,0), spacing=0):
+    layout = QVBoxLayout()
+    layout.setContentsMargins(*margins)
+    layout.setSpacing(spacing)
+    return layout
+
+def hbox(margins=(0,0,0,0), spacing=0):
+    layout = QHBoxLayout()
+    layout.setContentsMargins(*margins)
+    layout.setSpacing(spacing)
+    return layout
+
 #bg class to help with printing signal
 class PrintThread(QThread):
     done = pyqtSignal()
@@ -161,33 +174,45 @@ class Window(QWidget):
         window.frameColor = (255,255,255) #default photostrip frame color is white
         window.filter = "Regular" #default filter is none
         window.mode = "regular"
-    
         window.video = None
-        window.setWindowTitle("Photobooth")
-
-        #mouse tracking
-        window.setMouseTracking(True)
         
-        #GUI Layout
+        #SET UP
+        window.setWindowTitle("Photobooth")
+        window.setMouseTracking(True)
         window.setStyleSheet("background-color: #ffffff;")
         window.setFixedSize(1470,895)   
+      
         window.stack = QStackedWidget()
-        mainLayout = QVBoxLayout()
-        mainLayout.setContentsMargins(0, 0, 0, 0)
-        mainLayout.setSpacing(0)
+       
+        mainLayout = vbox()
         mainLayout.addWidget(window.stack)
         window.setLayout(mainLayout)
 
+        #CAMERA/ AI 
         #BRIGHTNESS ADJUSTMENT
         window.hd = HandDetector()
+        
         window.brightness = 0
         window.brightnessMode = "idle"
 
+        #face mesh
+        window.faceMesh = mp.solutions.face_mesh.FaceMesh(static_image_mode=False, max_num_faces=4, min_detection_confidence=0.5, min_tracking_confidence=0.5)
+        window.sunglasses = cv2.imread("sunglasses.png", cv2.IMREAD_UNCHANGED)
+        window.mustangEars = cv2.imread("mustang_ears.png", cv2.IMREAD_UNCHANGED)
+        window.mustangNose = cv2.imread("mustang_nose.png", cv2.IMREAD_UNCHANGED)
+        window.blush = cv2.imread("blush.png", cv2.IMREAD_UNCHANGED)
+        window.confettiPieces = []
+        window.makeConfetti()
+        window.activeEffect = None
+        window.effectTimer = 0
+
+        #TIMER
+        window.timer = QTimer()
+        window.timer.timeout.connect(window.cameraLoop) #runs cameraLoop when timer is connected
+
         #HOMEPAGE (header, photobooth text, start button)
         homePage = QWidget()
-        homeLayout = QVBoxLayout()
-        homeLayout.setContentsMargins(0, 0, 0, 0)
-        homeLayout.setSpacing(0)
+        homeLayout = vbox()
         homePage.setLayout(homeLayout)
 
         #top header
@@ -212,9 +237,7 @@ class Window(QWidget):
 
         #MODE PAGE (select between regular, lighting adjustment, and filters)
         modePage = QWidget()
-        modeLayout = QVBoxLayout()
-        modeLayout.setContentsMargins(70, 60, 70, 60)
-        modeLayout.setSpacing(25)
+        modeLayout = vbox((70,60,70,60),25)
         modePage.setLayout(modeLayout)        
                                       
         modeTitle = QLabel("Select Mode")
@@ -226,8 +249,7 @@ class Window(QWidget):
         divider.setFixedHeight(1)
         divider.setStyleSheet("background-color: #000000;")
 
-        cards= QHBoxLayout()
-        cards.setSpacing(20)
+        cards= hbox(spacing=20)
 
         modes = [("Regular", "regular"), ("Light Adjustment", "brightness"), ("Filters", "filters")]
 
@@ -249,45 +271,30 @@ class Window(QWidget):
            
         #CAMERA PAGE (countdown, camera feed, previews)
         cameraPage = QWidget()
-        cameraMainLayout = QVBoxLayout()
+        cameraMainLayout = vbox((0,0,0,0),spacing=10)
         cameraMainLayout.setContentsMargins(0, 0, 0, 0)
         cameraMainLayout.setSpacing(10)
         cameraPage.setLayout(cameraMainLayout)
 
-        # TEST FILTER BUTTON
+        # test filter button
         # window.testButton = QPushButton("Test Filter", cameraPage)
         # cameraMainLayout.addWidget(window.testButton)
         # window.testButton.clicked.connect(window.testFilter)
         # window.filter = "Regular"
        
-        #take pictures button
+        #"take pictures" button
+        window.cameraMainLayout.addSpacing(20)
         window.pictureButton = QPushButton("Take Pictures", cameraPage)
         window.pictureButton.setStyleSheet("""font-size: 18px; padding: 8px 36px; background-color: #fdbe15; color: #ffffff; border: none; border-radius: 0px;""")
         window.pictureButton.clicked.connect(window.takePicture)
         window.pictureButton.setHidden(True)
         cameraMainLayout.addSpacing(10)
         cameraMainLayout.addWidget(window.pictureButton, alignment = Qt.AlignmentFlag.AlignCenter)
-
-        #face mesh
-        window.faceMesh = mp.solutions.face_mesh.FaceMesh(static_image_mode=False, max_num_faces=4, min_detection_confidence=0.5, min_tracking_confidence=0.5)
-
-        window.sunglasses = cv2.imread("sunglasses.png", cv2.IMREAD_UNCHANGED)
-        window.mustangEars = cv2.imread("mustang_ears.png", cv2.IMREAD_UNCHANGED)
-        window.mustangNose = cv2.imread("mustang_nose.png", cv2.IMREAD_UNCHANGED)
-        window.blush = cv2.imread("blush.png", cv2.IMREAD_UNCHANGED)
-        window.confettiPieces = []
-        window.makeConfetti()
-        window.activeEffect = None
-        window.effectTimer = 0
         
         #countdown label
         window.countdownLabel = QLabel("") 
         window.countdownLabel.setStyleSheet("""color: #000000; font-size: 30px; font-weight:380; padding: 10px;""")
         cameraMainLayout.addWidget(window.countdownLabel, alignment = Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
-        
-        #timer
-        window.timer = QTimer()
-        window.timer.timeout.connect(window.cameraLoop) #runs cameraLoop when timer is connected
   
         #image label
         window.imageLabel = QLabel() #widget to display camera feed and previews
@@ -300,16 +307,12 @@ class Window(QWidget):
 
         #CUSTOM PAGE (frame, filter, sticker options)
         customPage = QWidget()
-        customMainLayout = QHBoxLayout()
-        customMainLayout.setContentsMargins(40, 40, 40, 40)
-        customMainLayout.setSpacing(40)
+        customMainLayout = hbox((40,40,40,40), spacing=40)
         customPage.setLayout(customMainLayout)
 
         #left panel (photostrip preview)
         leftPanel = QWidget()
-        leftLayout = QVBoxLayout()
-        leftLayout.setContentsMargins(0, 0, 0, 0)
-        leftLayout.setSpacing(0)
+        leftLayout = vbox()
         leftPanel.setLayout(leftLayout)
 
         #image label for photostrip preview
@@ -321,9 +324,7 @@ class Window(QWidget):
         #right panel (customization options)
         rightPanel = QWidget()
         rightPanel.setStyleSheet("background-color: #ffffff; border-radius: 24px; padding: 20px;") 
-        rightLayout = QVBoxLayout()
-        rightLayout.setContentsMargins(50, 40, 50, 40)
-        rightLayout.setSpacing(24)
+        rightLayout = vbox((50,40,50,40), spacing=24)
         rightPanel.setLayout(rightLayout)
 
         #next button
@@ -338,8 +339,7 @@ class Window(QWidget):
         frameLabel.setStyleSheet("""color: #000000; font-size: 20px; font-weight: 400;""")
         rightLayout.addWidget(frameLabel)
 
-        frameRow = QHBoxLayout()
-        frameRow.setSpacing(12)
+        frameRow = vbox((0,0,0,0), spacing=12)
         framecolors = [
             ("white",    "#ffffff", "black",  (255,255,255)),
             ("black",    "#000000", "white",  (0,0,0)),
@@ -364,8 +364,7 @@ class Window(QWidget):
         filterLabel.setStyleSheet("""color: #000000; font-size: 20px; font-weight: 400;""")
         rightLayout.addWidget(filterLabel)
 
-        filterRow = QHBoxLayout()
-        filterRow.setSpacing(12)
+        filterRow = hbox((0,0,0,0), spacing=12)
         filters = ["Regular", "B&W", "Vintage", "2016"]
         
         window.filterButtons = []
@@ -382,8 +381,7 @@ class Window(QWidget):
         stickerLabel.setStyleSheet("""color: #000000; font-size: 20px; font-weight: 400;""")
         rightLayout.addWidget(stickerLabel)
 
-        stickerRow = QHBoxLayout()
-        stickerRow.setSpacing(12)
+        stickerRow = hbox((0,0,0,0), spacing=12)
         stickers = [
             ("asij", 600),
             ("gradyear", 800),
@@ -411,13 +409,11 @@ class Window(QWidget):
         
         customMainLayout.addWidget(rightPanel)
 
-        #PRINTING PAGE 
+        #PRINT PAGE 
         #shows "printing..." text while photostrip is being sent to the printer to print
         printPage = QWidget()
         printPage.setStyleSheet("background-color: #ffffff;")
-        printLayout = QVBoxLayout()
-        printLayout.setContentsMargins(0, 0, 0, 0)
-        printLayout.setSpacing(0)
+        printLayout = vbox()
         printPage.setLayout(printLayout)
 
         printLayout.addSpacing(100)
@@ -461,7 +457,7 @@ class Window(QWidget):
         window.qrLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         printLayout.addWidget(window.qrLabel)
 
-        #ALL PAGES
+        #STACK
         window.stack.addWidget(homePage) #0
         window.stack.addWidget(modePage) #1
         window.stack.addWidget(cameraPage) #2
