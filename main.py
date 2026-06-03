@@ -654,7 +654,7 @@ class Window(QWidget):
                 continue
             elif hearts:
                 window.activeEffect = "sparkle"
-                window.effectTimer = 10
+                window.effectTimer = 20
                 usedHands.update(handIndexes)
                 continue
             elif thumbs:
@@ -666,8 +666,8 @@ class Window(QWidget):
         if window.effectTimer > 0:
             if window.activeEffect == "confetti":
                 frame = window.confetti(frame)
-            if window.activeEffect == "confetti":
-                frame = window.confetti(frame, face)
+            if window.activeEffect == "sparkle":
+                frame = window.sparkle(frame, face)
 
             window.effectTimer -= 1
         
@@ -767,6 +767,10 @@ class Window(QWidget):
 
         frame = window.overlay(frame, window.blush, leftBlushX, leftBlushY, blushWidth, blushHeight)
         frame = window.overlay(frame, window.blush, rightBlushX, rightBlushY, blushWidth, blushHeight) 
+        
+        eyeSize = (max)(35, eyeDist * 0.35)
+        frame = window.enlargeEye(frame, leftEyeX, leftEyeY, eyeSize)
+        frame = window.enlargeEye(frame, rightEyeX, rightEyeY, eyeSize)
 
         window.drawStar(frame, leftEyeX, leftEyeY, starSize, (255,255,255))
         window.drawStar(frame, rightEyeX, rightEyeY, starSize, (255,255,255))
@@ -776,6 +780,42 @@ class Window(QWidget):
 
         return frame
 
+    def enlargeEye(window, frame, eyeX, eyeY, size):
+        h, w = frame.shape[:2]
+        size = int(size)
+        ew = eh = size
+        pad = size//2
+        big = ew + pad * 2
+
+        x = max(0, min(int(eyeX-big//2), w -big))
+        y= max(0, min(int(eyeY-big//2), h -big))
+
+        region = frame[y:y+big, x:x+big].copy()
+        
+        scale =1.5
+        ns = (int(big*scale), int (big*scale))
+        zoomed = cv2.resize(region, ns, interpolation = cv2.INTER_LANCZOS4)
+
+        oz = (ns[0] - big)//2
+        zoomed = zoomed[oz:oz+big, oz:oz+big]
+
+        mask = np.zeros((big, big), dtype = np.float32)
+        cv2.ellipse(mask, (big//2, big//2), (ew//2, eh//3),0,0,360,1.0,-1)
+       
+        blur = max(big//3*2+1,3)
+        if blur%2==0:
+            blur+=1
+
+        mask = cv2.GaussianBlur(mask, (blur,blur), 0)
+        mask = mask[:,:,np.newaxis]
+        
+        base= frame[y:y+big, x:x+big].astype(np.float32)
+        blended = (zoomed.astype(np.float32)*mask+base*(1.0-mask)).astype(np.uint8)
+        
+        frame[y:y+big, x:x+big] = blended
+        
+        return frame
+    
     def drawStar(window, frame, x, y, size, color):
         cv2.line(frame, (x, y - size), (x, y + size), color, 2)
         cv2.line(frame, (x - size, y), (x + size, y), color, 2)
