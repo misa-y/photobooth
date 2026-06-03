@@ -4,6 +4,7 @@ GFPGAN/
 photobooth/
 photo_*.png
 photostrip_*.png
+recording_*.mp4
 
 #folders
 /venv

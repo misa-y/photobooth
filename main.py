@@ -1352,14 +1352,20 @@ class Window(QWidget):
         thread.start()
 
     def downloadPage(window, photoFile, videoFile):
+        print("video file:", window.recordingFile, os.path.exists(window.recordingFile))
         ip = subprocess.check_output("ipconfig getifaddr en0", shell = True).decode().strip()
         base = f"http://{ip}:8080"
         html=f"""
         <html>
         <body style = "margin:0; background:#000;">
-            <img src="{base}/{photoFile}" style="width:100%; display:block;"/>
-        <video src="{base}/{videoFile}" controls style="width:100%; display:block;"></video>
-        </body>
+            <h1>ASIJ Photobooth</h1>
+            <h2>Photo</h2>
+            <img src="{base}/{photoFile}" style="width:90%; max-width:500px; display:block; margin:auto;"/>
+            <p><a href="{base}/{photoFile}" download>Download Photo</a></p>
+            <h2>Video</h2>
+            <video src="{base}/{videoFile}" controls playsinline style="width:90%; max-width:500px;"></video>
+            <p><a href="{base}/{videoFile}" download>Download Video</a></p>
+            </body>
         </html>
         """
         with open("download.html", "w") as f:
