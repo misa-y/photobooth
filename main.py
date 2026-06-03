@@ -2,11 +2,17 @@ from fileinput import filename
 
 import cv2
 import mediapipe as mp
+import imageio
 from matplotlib.pyplot import gray, hsv
 import numpy as np
 import time
 import sys
 import subprocess
+
+import qrcode
+import os
+import threading
+import http.server
 
 from cvzone.HandTrackingModule import HandDetector
 
@@ -29,6 +35,19 @@ class PrintThread(QThread):
         subprocess.run(["lpr", self.filename]) #prints
         time.sleep(8)
         self.done.emit() #sends signal
+
+#bg class to prevent lags/pauses when saving the video loop
+class VideoLoopThread(QThread):
+    def __init__(self, filename):
+        super().__init__()
+        self.filename = filename
+    
+    def run(self):
+        frames = imageio.mimread(self.filename, memtest = False)
+        with imageio.get_writer(self.filename, fps=45) as w:
+            for i in range (3):
+                for frame in frames:
+                    w.append_data(frame)
 
 #class for mode selection cards on mode page
 class ModeCard(QPushButton):
@@ -392,9 +411,6 @@ class Window(QWidget):
         
         customMainLayout.addWidget(rightPanel)
 
-        #FACIAL ENHANCER MODEL
-        
-
         #PRINTING PAGE 
         #shows "printing..." text while photostrip is being sent to the printer to print
         printPage = QWidget()
@@ -440,6 +456,11 @@ class Window(QWidget):
 
         printLayout.addSpacing(20)
 
+        #qr code generation
+        window.qrLabel=QLabel()
+        window.qrLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        printLayout.addWidget(window.qrLabel)
+
         #ALL PAGES
         window.stack.addWidget(homePage) #0
         window.stack.addWidget(modePage) #1
@@ -476,6 +497,8 @@ class Window(QWidget):
         window.timer.start (30) #update every 30ms
        
         window.pictureButton.setHidden(False)
+
+        window.startFileServer()
 
         if not window.video.isOpened(): #check if camera opened successfully
             print("Error Opening the Camera")
@@ -516,7 +539,8 @@ class Window(QWidget):
             window.frame = window.liveFilter(window.frame)
 
         if window.videoWriter is not None:
-            window.videoWriter.write(window.frame)
+            window.videoWriter.append_data(cv2.cvtColor(window.frame, cv2.COLOR_BGR2RGB))
+
         height, width, channels = window.frame.shape
         image = QImage(window.frame.data, width, height, QImage.Format.Format_BGR888)
 
@@ -525,8 +549,8 @@ class Window(QWidget):
    
     def takePicture(window):
         window.captureIndex = 0 #reset capture index for new photostrip
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        window.videoWriter = cv2.VideoWriter(f"recording_{time.strftime('%Y%m%d%H%M%S')}.mp4", fourcc, 60, (867, 714))
+        window.recordingFile = f"recording_{time.strftime('%Y%m%d%H%M%S')}.mp4"
+        window.videoWriter = imageio.get_writer(window.recordingFile, fps=45)
         window.startCountdown() 
         window.pictureButton.setHidden(True)
 
@@ -1174,6 +1198,13 @@ class Window(QWidget):
         """
         helper function to transition from camera page to customization page and generate the photostrip.
         """
+        if window.videoWriter is not None:
+            window.videoWriter.close()
+            window.videoWriter = None
+
+        window.videoLoopThread = VideoLoopThread(window.recordingFile)
+        window.videoLoopThread.start()
+
         window.stack.setCurrentIndex(3)
         window.photostrip()
 
@@ -1224,7 +1255,7 @@ class Window(QWidget):
          """
         timestamp = time.strftime("%Y%m%d%H%M%S")
         filename = f"photostrip_{timestamp}.png"
-        
+
         copy = window.photostripImage
         height,width,channels = copy.shape
         overlap = 110
@@ -1234,6 +1265,8 @@ class Window(QWidget):
         printStrip[:, width-overlap:] = copy
         printStrip = cv2.resize(printStrip, (1200, 1800))
         cv2.imwrite(filename, printStrip)
+
+        window.downloadPage(filename, window.recordingFile)
 
         window.stack.setCurrentIndex(4)
 
@@ -1279,9 +1312,6 @@ class Window(QWidget):
             window.video.release()
             window.video = None
             
-        if window.videoWriter is not None:
-            window.videoWriter.release()
-            window.videoWriter = None
         window.countdownLabel.clear()
         window.imageLabel.clear()
         window.customImageLabel.clear()
@@ -1309,7 +1339,38 @@ class Window(QWidget):
                 Qt.AspectRatioMode.KeepAspectRatio
             )
         )
-        
+
+#for QR code generation
+    def startFileServer(window):
+        if hasattr(window,'serverStarted'):
+            return
+        window.serverStarted = True
+        handler = http.server.SimpleHTTPRequestHandler
+        window.httpServer = http.server.HTTPServer(("", 8080), handler)
+        thread = threading.Thread(target=window.httpServer.serve_forever)
+        thread.daemon = True
+        thread.start()
+
+    def downloadPage(window, photoFile, videoFile):
+        ip = subprocess.check_output("ipconfig getifaddr en0", shell = True).decode().strip()
+        base = f"http://{ip}:8080"
+        html=f"""
+        <html>
+        <body style = "margin:0; background:#000;">
+            <img src="{base}/{photoFile}" style="width:100%; display:block;"/>
+        <video src="{base}/{videoFile}" controls style="width:100%; display:block;"></video>
+        </body>
+        </html>
+        """
+        with open("download.html", "w") as f:
+            f.write(html)
+
+        url = f"{base}/download.html"
+        qr = qrcode.make(url)
+        qr.save("qr.png")
+        pixmap = QPixmap("qr.png").scaled(200,200, Qt.AspectRatioMode.KeepAspectRatio)
+        window.qrLabel.setPixmap(pixmap)
+       
 def main():
 # Initializes the PyQt application and creates the main window for the photobooth.
      app = QApplication(sys.argv)
