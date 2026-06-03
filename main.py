@@ -617,6 +617,86 @@ class Window(QWidget):
         window.startCamera()
 
 #facial enhancer/ live feed filters
+    def liveFilter(window, frame):
+        #two rock signs --> sunglasses
+        #two mini heart signs --> anime sparkles
+        #two thumbs up --> confetti effect
+        #two peace signs --> (mustang) horse filter
+
+        #sunglasses + horse: facial overlays
+        #confettit + sparkles: opencv drawings 
+
+        hands, frame = window.hd.findHands(frame, draw=False)
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = window.faceMesh.process(rgb)
+
+        if not results.multi_face_landmarks:
+            return frame
+        
+        height,width,c = frame.shape
+        
+        usedHands = set()
+        for face in results.multi_face_landmarks:
+            faceHands, handIndexes = window.closestHands(face, hands, usedHands, width)
+
+            rock = window.sameGesture(faceHands, [0,1,0,0,1])
+            peace = window.sameGesture(faceHands, [0,1,1,0,0])
+            thumbs = window.sameGesture(faceHands, [1,0,0,0,0])
+            hearts = window.detectHearts(faceHands, frame)
+
+            if rock:
+                frame = window.sunglass(frame, face)
+                usedHands.update(handIndexes)
+                continue
+            elif peace:
+                frame = window.horse(frame, face)
+                usedHands.update(handIndexes)
+                continue
+            elif hearts:
+                window.activeEffect = "sparkle"
+                window.effectTimer = 10
+                usedHands.update(handIndexes)
+                continue
+            elif thumbs:
+                window.activeEffect = "confetti"
+                window.effectTimer = 60
+                usedHands.update(handIndexes)
+                continue
+
+        if window.effectTimer > 0:
+            if window.activeEffect == "confetti":
+                frame = window.confetti(frame)
+            if window.activeEffect == "confetti":
+                frame = window.confetti(frame, face)
+
+            window.effectTimer -= 1
+        
+        return frame
+
+    def detectHearts(window, hands, frame):
+        if len(hands) < 2:
+            return False
+        
+        heartCount = 0
+
+        for hand in hands [:2]:
+            lm = hand['lmList']
+            fingers = window.hd.fingersUp(hand)
+
+            wrist = lm[0][0:2]
+            thumbTip = lm[4][0:2]
+            index = lm[8][0:2]
+            middle = lm[9][0:2]
+
+            handSize = np.hypot(wrist[0]-middle[0], wrist[1]-middle[1])
+            thumbIndexDist = np.hypot(thumbTip[0]-index[0], thumbTip[1]-index[1])
+
+            miniHeart = (fingers == [1,1,0,0,0] and thumbIndexDist<handSize * 0.7)
+            if miniHeart:
+                heartCount += 1
+
+        return heartCount == 2
+
     def enhanceFace(window, frame):
         
         return frame
@@ -639,74 +719,61 @@ class Window(QWidget):
         
         return frame
     
-    def sunglass(window, frame):
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = window.faceMesh.process(rgb)
-
-        if not results.multi_face_landmarks:
-            return frame
-        
+    def sunglass(window, frame, face):
         h,w,c = frame.shape
         
-        for face in results.multi_face_landmarks:
-            leftEye = face.landmark[33]
-            rightEye = face.landmark[263]
-            nose = face.landmark[168]
+        leftEye = face.landmark[33]
+        rightEye = face.landmark[263]
+        nose = face.landmark[168]
 
-            leftX = int(leftEye.x * w)
-            rightX = int(rightEye.x * w)
-            noseX = int(nose.x * w)
-            noseY = int(nose.y * h)
+        leftX = int(leftEye.x * w)
+        rightX = int(rightEye.x * w)
+        noseX = int(nose.x * w)
+        noseY = int(nose.y * h)
 
-            glassesWidth = int((rightX - leftX) * 1.75) #wider/narrower
-            glassesHeight = int(glassesWidth * 0.5) #taller/shorter
-            x = int(noseX-glassesWidth/2) #left/right
-            y = int(noseY-glassesHeight/2+60) #up/down 
-            frame = window.overlay(frame, window.sunglasses, x, y, glassesWidth, glassesHeight)
+        glassesWidth = int((rightX - leftX) * 1.75) #wider/narrower
+        glassesHeight = int(glassesWidth * 0.5) #taller/shorter
         
-        print("sunglasses filter applied")
+        x = int(noseX-glassesWidth/2) #left/right
+        y = int(noseY-glassesHeight/2+60) #up/down 
+        
+        frame = window.overlay(frame, window.sunglasses, x, y, glassesWidth, glassesHeight)
+        
+
         return frame
     
-    def sparkle(window, frame):
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = window.faceMesh.process(rgb)
-        
-        if not results.multi_face_landmarks:
-            return frame
-        
+    def sparkle(window, frame, face):
         h,w,c = frame.shape
 
-        for face in results.multi_face_landmarks:
-            leftEyeOut = face.landmark[33]
-            leftEyeIn = face.landmark[133]
-            rightEyeIn = face.landmark[362]
-            rightEyeOut = face.landmark[263]
+        leftEyeOut = face.landmark[33]
+        leftEyeIn = face.landmark[133]
+        rightEyeIn = face.landmark[362]
+        rightEyeOut = face.landmark[263]
 
-            leftEyeX = int((leftEyeOut.x + leftEyeIn.x)/2 * w)
-            leftEyeY = int((leftEyeOut.y + leftEyeIn.y)/2 * h)
-            rightEyeX = int((rightEyeOut.x + rightEyeIn.x)/2 * w)
-            rightEyeY = int((rightEyeOut.y + rightEyeIn.y)/2 * h)
+        leftEyeX = int((leftEyeOut.x + leftEyeIn.x)/2 * w)
+        leftEyeY = int((leftEyeOut.y + leftEyeIn.y)/2 * h)
+        rightEyeX = int((rightEyeOut.x + rightEyeIn.x)/2 * w)
+        rightEyeY = int((rightEyeOut.y + rightEyeIn.y)/2 * h)
 
-            eyeDist = abs(rightEyeX - leftEyeX)
-            starSize = max(8, int(eyeDist * 0.01)) #size of sparkles
+        eyeDist = abs(rightEyeX - leftEyeX)
+        starSize = max(8, int(eyeDist * 0.01)) #size of sparkles
             
-            blushWidth = int(eyeDist * 0.55)
-            blushHeight = int(blushWidth * 0.6)
-            leftBlushX = int(leftEyeX - blushWidth/2 - eyeDist * 0.15)
-            leftBlushY = int(leftEyeY + eyeDist *0.25)
-            rightBlushX = int(rightEyeX - blushWidth/2 + eyeDist * 0.15)
-            rightBlushY = int(rightEyeY + eyeDist *0.25)
+        blushWidth = int(eyeDist * 0.55)
+        blushHeight = int(blushWidth * 0.6)
+        leftBlushX = int(leftEyeX - blushWidth/2 - eyeDist * 0.15)
+        leftBlushY = int(leftEyeY + eyeDist *0.25)
+        rightBlushX = int(rightEyeX - blushWidth/2 + eyeDist * 0.15)
+        rightBlushY = int(rightEyeY + eyeDist *0.25)
 
-            frame = window.overlay(frame, window.blush, leftBlushX, leftBlushY, blushWidth, blushHeight)
-            frame = window.overlay(frame, window.blush, rightBlushX, rightBlushY, blushWidth, blushHeight) 
+        frame = window.overlay(frame, window.blush, leftBlushX, leftBlushY, blushWidth, blushHeight)
+        frame = window.overlay(frame, window.blush, rightBlushX, rightBlushY, blushWidth, blushHeight) 
 
-            window.drawStar(frame, leftEyeX, leftEyeY, starSize, (255,255,255))
-            window.drawStar(frame, rightEyeX, rightEyeY, starSize, (255,255,255))
+        window.drawStar(frame, leftEyeX, leftEyeY, starSize, (255,255,255))
+        window.drawStar(frame, rightEyeX, rightEyeY, starSize, (255,255,255))
 
-            window.drawStar(frame, leftEyeX - starSize * 3, leftEyeY - starSize *2, starSize//2, (255, 170, 255))
-            window.drawStar(frame, rightEyeX + starSize * 3, rightEyeY - starSize *2, starSize//2, (255, 170, 255))
+        window.drawStar(frame, leftEyeX - starSize * 3, leftEyeY - starSize *2, starSize//2, (255, 170, 255))
+        window.drawStar(frame, rightEyeX + starSize * 3, rightEyeY - starSize *2, starSize//2, (255, 170, 255))
 
-        print("sparkle filter applied")
         return frame
 
     def drawStar(window, frame, x, y, size, color):
@@ -754,48 +821,98 @@ class Window(QWidget):
                 piece["speed"] = np.random.randint(2,8)
                 piece["drift"] = np.random.randint(-2, 4)
 
-        print("confetti filter applied")
         return frame
    
-    def horse(window, frame):
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = window.faceMesh.process(rgb)
-
-        if not results.multi_face_landmarks:
-            return frame
-        
+    def horse(window, frame, face):
         h,w,c = frame.shape
-        
-        for face in results.multi_face_landmarks:
-            leftEye = face.landmark[33]
-            rightEye = face.landmark[263]
-            forehead = face.landmark[10]
-            nose = face.landmark[1]
+        leftEye = face.landmark[33]
+        rightEye = face.landmark[263]
+        forehead = face.landmark[10]
+        nose = face.landmark[1]
 
-            leftX = int(leftEye.x * w)
-            rightX = int(rightEye.x * w)
-            foreheadX = int(forehead.x * w)
-            foreheadY = int(forehead.y * h)
-            noseX = int(nose.x * w)
-            noseY = int(nose.y * h)
+        leftX = int(leftEye.x * w)
+        rightX = int(rightEye.x * w)
+        foreheadX = int(forehead.x * w)
+        foreheadY = int(forehead.y * h)
+        noseX = int(nose.x * w)
+        noseY = int(nose.y * h)
 
-            faceWidth = abs(rightX - leftX)
+        faceWidth = abs(rightX - leftX)
             
-            earsWidth = int(faceWidth * 2.4) #wider/narrower for ears
-            earsHeight = int(earsWidth * 0.6) #taller/shorter for ears
-            earsX = int(foreheadX - earsWidth/2) #left/right
-            earsY = int(foreheadY - earsHeight*0.78) #up/down
+        earsWidth = int(faceWidth * 2.4) #wider/narrower for ears
+        earsHeight = int(earsWidth * 0.6) #taller/shorter for ears
+        earsX = int(foreheadX - earsWidth/2) #left/right
+        earsY = int(foreheadY - earsHeight*0.78) #up/down
 
-            noseWidth = int(faceWidth * 0.65) #wider/narrower for nose
-            noseHeight = int(noseWidth * 0.65) #taller/shorter for nose
-            noseX = int(noseX - noseWidth/2) #left/right
-            noseY = int(noseY - noseHeight/2-40) #up/down
+        noseWidth = int(faceWidth * 0.65) #wider/narrower for nose
+        noseHeight = int(noseWidth * 0.65) #taller/shorter for nose
+        noseX = int(noseX - noseWidth/2) #left/right
+        noseY = int(noseY - noseHeight/2-40) #up/down
             
-            frame = window.overlay(frame, window.mustangEars, earsX, earsY, earsWidth, earsHeight)
-            frame = window.overlay(frame, window.mustangNose, noseX, noseY, noseWidth, noseHeight)
+        frame = window.overlay(frame, window.mustangEars, earsX, earsY, earsWidth, earsHeight)
+        frame = window.overlay(frame, window.mustangNose, noseX, noseY, noseWidth, noseHeight)
         
-        print("horse filter applied")
         return frame
+
+    def handX(window, hand):
+        total = 0
+        for point in hand['lmList']:
+            total += point[0]
+
+        return (int)(total/len(hand['lmList']))
+    
+    def getFaceCenterX(window, face, frameWidth):
+        leftEye = face.landmark[33]
+        rightEye = face.landmark[263]
+
+        leftX = int(leftEye.x * frameWidth)
+        rightX = int(rightEye.x * frameWidth)
+
+        return (int)((leftX + rightX) // 2)
+    
+    def closestHands(window, face, hands, usedHands, frameWidth):
+        faceX = window.getFaceCenterX(face, frameWidth)
+
+        leftEye = face.landmark[33]
+        rightEye = face.landmark[263]
+
+        leftX = int(leftEye.x * frameWidth)
+        rightX = int(rightEye.x * frameWidth)
+
+        faceWidth = abs(rightX-leftX)
+        maxDistance = faceWidth * 2.5
+
+        closest = []
+        
+        for index, hand in enumerate(hands):
+            if index in usedHands:
+                continue
+
+            handX = window.handX(hand)
+            distance = abs(handX - faceX)
+            
+            if distance < maxDistance:
+                closest.append((distance, index, hand))
+
+        closest.sort(key=lambda x: x[0])
+
+        faceHands = []
+        handIndexes = []
+
+        for distance, index, hand in closest [:2]:
+            faceHands.append(hand)
+            handIndexes.append(index)
+
+        return faceHands, handIndexes
+    
+    def sameGesture(window, hands, gesture):
+        if len(hands) < 2:
+            return False
+        
+        fingers1 = window.hd.fingersUp(hands[0])
+        fingers2 = window.hd.fingersUp(hands[1])
+
+        return fingers1 == gesture and fingers2 == gesture
 
 #gesture triggered brightness adjustment
     def adjustBrightness(window, frame):
@@ -846,75 +963,6 @@ class Window(QWidget):
 
     
         return frame
-
-    def liveFilter(window, frame):
-        #two rock signs --> sunglasses
-        #two mini heart signs --> anime sparkles
-        #two thumbs up --> confetti effect
-        #two peace signs --> (mustang) horse filter
-
-        #sunglasses + horse: facial overlays
-        #confettit + sparkles: opencv drawings 
-
-        hands, frame = window.hd.findHands(frame, draw=False)
-        
-        if len(hands) >=2:
-            hand1 = hands[0]
-            hand2 = hands[1]
-
-            fingers1 = window.hd.fingersUp(hand1)
-            fingers2 = window.hd.fingersUp(hand2)
-
-            peace = fingers1 == [0,1,1,0,0] and fingers2 == [0,1,1,0,0]
-            rock = fingers1 == [0,1,0,0,1] and fingers2 == [0,1,0,0,1]
-            thumbs = fingers1 == [1,0,0,0,0] and fingers2 == [1,0,0,0,0]
-            hearts = window.detectHearts(hands, frame)
-
-            if rock:
-                frame = window.sunglass(frame)
-            elif peace:
-                frame = window.horse(frame)
-            
-            elif thumbs:
-                window.activeEffect = "confetti"
-                window.effectTimer = 60
-            elif hearts:
-                window.activeEffect = "sparkle"
-                window.effectTimer = 60
-
-        if window.effectTimer > 0:
-            if window.activeEffect == "confetti":
-                frame = window.confetti(frame)
-            elif window.activeEffect == "sparkle":
-                frame = window.sparkle(frame)
-
-            window.effectTimer -= 1
-        
-        return frame
-
-    def detectHearts(window, hands, frame):
-        if len(hands) < 2:
-            return False
-        
-        heartCount = 0
-
-        for hand in hands [:2]:
-            lm = hand['lmList']
-            fingers = window.hd.fingersUp(hand)
-
-            wrist = lm[0][0:2]
-            thumbTip = lm[4][0:2]
-            index = lm[8][0:2]
-            middle = lm[9][0:2]
-
-            handSize = np.hypot(wrist[0]-middle[0], wrist[1]-middle[1])
-            thumbIndexDist = np.hypot(thumbTip[0]-index[0], thumbTip[1]-index[1])
-
-            miniHeart = (fingers == [1,1,0,0,0] and thumbIndexDist)
-            if miniHeart:
-                heartCount += 1
-
-        return heartCount == 2
 
 #frame 
     def showFrame(window, color):
