@@ -275,7 +275,10 @@ class Window(QWidget):
         window.imageLabel.setStyleSheet("background-color: black; border-radius: 26px; border: 4px solid #febe15; padding: 8px;""")
         window.imageLabel.setFixedSize(867, 714)
         cameraMainLayout.addWidget(window.imageLabel, alignment = Qt.AlignmentFlag.AlignCenter)
-                                        
+
+        #video
+        window.videoWriter = None 
+
         #CUSTOM PAGE (frame, filter, sticker options)
         customPage = QWidget()
         customMainLayout = QHBoxLayout()
@@ -512,6 +515,8 @@ class Window(QWidget):
         elif window.mode == "filters":
             window.frame = window.liveFilter(window.frame)
 
+        if window.videoWriter is not None:
+            window.videoWriter.write(window.frame)
         height, width, channels = window.frame.shape
         image = QImage(window.frame.data, width, height, QImage.Format.Format_BGR888)
 
@@ -520,6 +525,8 @@ class Window(QWidget):
    
     def takePicture(window):
         window.captureIndex = 0 #reset capture index for new photostrip
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        window.videoWriter = cv2.VideoWriter(f"recording_{time.strftime('%Y%m%d%H%M%S')}.mp4", fourcc, 60, (867, 714))
         window.startCountdown() 
         window.pictureButton.setHidden(True)
 
@@ -1219,13 +1226,13 @@ class Window(QWidget):
         filename = f"photostrip_{timestamp}.png"
         
         copy = window.photostripImage
-        gap = 40
         height,width,channels = copy.shape
+        overlap = 110
 
-        printStrip = np.full((height, width*2+gap, 3), (255,255,255), dtype=np.uint8)
+        printStrip = np.full((height, width*2-overlap, 3), (255,255,255), dtype=np.uint8)
         printStrip[:,:width] = copy
-        printStrip[: width+gap:] = copy
-
+        printStrip[:, width-overlap:] = copy
+        printStrip = cv2.resize(printStrip, (1200, 1800))
         cv2.imwrite(filename, printStrip)
 
         window.stack.setCurrentIndex(4)
@@ -1272,6 +1279,9 @@ class Window(QWidget):
             window.video.release()
             window.video = None
             
+        if window.videoWriter is not None:
+            window.videoWriter.release()
+            window.videoWriter = None
         window.countdownLabel.clear()
         window.imageLabel.clear()
         window.customImageLabel.clear()
@@ -1300,7 +1310,6 @@ class Window(QWidget):
             )
         )
         
-
 def main():
 # Initializes the PyQt application and creates the main window for the photobooth.
      app = QApplication(sys.argv)
