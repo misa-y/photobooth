@@ -31,34 +31,45 @@ class PrintThread(QThread):
         self.done.emit() #sends signal
 
 #class for mode selection cards on mode page
-# class ModeCard(QPushButton):
-#     def _init_(self, normalImage, hoverImage):
-#         super()._init_()
-#         self.normalPixmap = QPixmap(normalImage)
-#         self.hoverPixmap = QPixmap(hoverImage)
+class ModeCard(QPushButton):
+    def __init__(self, normalImage, hoverImage, label):
+        super().__init__()
+        self.normalPixmap = QPixmap(normalImage)
+        self.hoverPixmap = QPixmap(hoverImage)
 
-#         self.setFixedSize(400, 650)
+        self.setFixedSize(400, 650)
+        self.setStyleSheet("""QPushButton {background-color: black; border: 2px solid black}""")
 
-#         layout = QVBoxLayout(self)
 
-#         self.image = QLabel()
-#         self.image.setAlignment(Qt.AlignmentFlag.AlignCenter)
-#         self.image.setPixmap(self.normalPixmap.scaled(380,520, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
-#         layout.addStretch()
-#         layout.addWidget(self.image)
-#         layout.addStretch()
+        self.image = QLabel()
+        self.image.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image.setStyleSheet("background-color: transparent;")
+        self.image.setPixmap(self.normalPixmap.scaled(380,520, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
 
-#     def enterHoverEvent (self, event):
-#         self.setFixedSize(420, 670)
+        layout.addStretch()
+        layout.addWidget(self.image)
+        layout.addStretch()
 
-#         self.image.setPixmap(self.hoverPixmap.scaled(400,650, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
-#         super().enterHoverEvent(event)
+        self.label = QLabel(label)
+        self.label.setFixedHeight(100)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label.setStyleSheet("""background:#febe15;color: black; font-size: 24px; font-weight: 500;""")
+        layout.addWidget(self.label)
 
-#     def leaveHoverEvent(self, event):
-#         self.setFixedSize(400, 650)
-#         self.image.setPixmap(self.normalPixmap.scaled(380,520, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
-#         super().leaveHoverEvent(event)
+    def enterEvent (self, event):
+        self.setFixedSize(430, 680)
+
+        self.image.setPixmap(self.hoverPixmap.scaled(400,650, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.setFixedSize(400, 650)
+        self.image.setPixmap(self.normalPixmap.scaled(380,520, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        super().leaveEvent(event)
 
 class Window(QWidget):
     """
@@ -188,16 +199,13 @@ class Window(QWidget):
         modePage.setLayout(modeLayout)        
                                       
         modeTitle = QLabel("Select Mode")
+        modeTitle.setFixedHeight(60)
         modeTitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        modeTitle.setStyleSheet("""color: #000000; font-size: 36px; font-weight: bold;""")
-        modeLayout.addWidget(modeTitle)
+        modeTitle.setStyleSheet("""color: #febe15; font-size: 36px; font-weight: bold;""")
 
         divider = QLabel()
         divider.setFixedHeight(1)
         divider.setStyleSheet("background-color: #000000;")
-        modeLayout.addWidget(divider)
-
-        modeLayout.addSpacing(10)
 
         cards= QHBoxLayout()
         cards.setSpacing(20)
@@ -205,36 +213,20 @@ class Window(QWidget):
         modes = [("Regular", "regular"), ("Light Adjustment", "brightness"), ("Filters", "filters")]
 
         for label, mode in modes:
-            card = QPushButton(label)
-            card.setFixedSize(400,650)
-            card.setStyleSheet("""QPushButton{border: 2px solid #000000; border-radius: 0px; background-color: #000000;}""")
-            
-            cardLayout = QVBoxLayout()
-            cardLayout.setContentsMargins(0, 0, 0, 0)
-            cardLayout.setSpacing(0)
-
-            image = QLabel()
-            image.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            image.setStyleSheet("background-color: transparent;")
-            pixmap = QPixmap(f"{mode}.png")
-            image.setPixmap(pixmap.scaled(380,520, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
-
-            cardLayout.addStretch()
-            cardLayout.addWidget(image)
-            cardLayout.addStretch()
-
-            cardLabel = QLabel(label)
-            cardLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            cardLabel.setFixedHeight(100)
-            cardLabel.setStyleSheet("""background-color: #febe15; color: #000000; font-size: 24px; font-weight: 500; border: none;""")
-            cardLayout.addWidget(cardLabel)
-
-            card.setLayout(cardLayout)
-            cards.addWidget(card)
-        
+            card = ModeCard(f"{mode}.png", f"{mode}_hover.png", label)
             card.clicked.connect(lambda checked, m=mode: window.selectMode(m))
+            cards.addWidget(card)
 
-        modeLayout.addLayout(cards)
+        modeLayout.addWidget(modeTitle)
+        modeLayout.addWidget(divider)
+       
+        modeLayout.addSpacing(10)
+
+        cardsContainer = QWidget()
+        cardsContainer.setFixedHeight(690)
+        cardsContainer.setLayout(cards)
+
+        modeLayout.addWidget(cardsContainer)
            
         #CAMERA PAGE (countdown, camera feed, previews)
         cameraPage = QWidget()
