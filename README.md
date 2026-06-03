@@ -1,18 +1,17 @@
 # Interactive Photo Booth for School Events
-An real-time webcame interactive AI-powered photobooth for school events that captures photos, applies visual effects, and generates downloadable photostrips.
+A real-time, webcam-based interactive photobooth built with Python that captures images, applies AI-powered visual effects, and generates downloadable photostrips. Designed for school events and interactive installations.
 
 ## Features
-- Live Preview of your Webcam Feed
-- Timed Photo Capture
-- Photo Previews
-- Photostrip Generation
-- Custom Frame Color
-- Effect Overlays
-- AI-based Filters
-- Gesture-Triggered Effects
+- Live webcam preview using OpenCV
+- Countdown-based photo capture system
+- Automatic photostrip generation
+- Custom frame color selection
+- Real-time AR-style visual effects
+- Gesture-controlled filters (hand + face tracking)
+- AI-based face and hand detection for interaction
+- Photo/video preview system before download
 
 ## Controls
-P → Start photo capture
 Q → Quit application
 
 ## Requirements
@@ -20,6 +19,24 @@ Python 3.9+
 OpenCV
 PyQt6
 NumPy
+MediaPipe
+HTTP Server
+
+## User Flow
+User launches the application and starts the program
+The user is directed to the ModePage where they can select which mode to use for the photobooth (regular, brightness, filters, instructions availavle via hovering over the card)
+Live webcam feed starts and displays the user in real time
+System continuously detects faces and hand gestures in the background
+Depending on gestures, real-time effects may appear if in "filters" mode(e.g. sunglasses, horse filter, sparkles, confetti)
+User starts the capture sequence (pressing "take pictures")
+A countdown runs before each photo is taken
+Multiple photos are captured in a timed sequence
+Captured images are shown in a preview screen
+Photos are automatically combined into a photostrip layout with selected frame styling
+The user can customize their photostrip by choosing the frame color, applying a coloring filter over the photostrip, and adding stickers
+A local server is activated to host the output files
+A QR code is generated so users can instantly download the photo and the video from their phone
+WARNING: Sometimes the video takes longer to load so please be patient when downloading!
 
 ## Roadmap
 Pre-Project
@@ -61,4 +78,5 @@ Include..
 - Optimize performance for real-time, public-facing use
 
 ## Project Status
-The project is currently in its Core Photobooth Functionality. I am done with the basic components and have a working model. My next steps are to make the application more visually appealing and start researching more into gesture detection and filters.
+The software portion of the photobooth is fully developed and functional.
+Immediate Next Step: Cut paper to fit in our printer to be able to print the right size for the photostrips!

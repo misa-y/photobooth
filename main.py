@@ -23,13 +23,38 @@ from PyQt6.QtCore import QTimer, Qt, QThread, pyqtSignal
 from skimage import exposure
 from playsound3 import playsound
 
+# PHOTBOOTH SYSTEM ARCHITECTURE
+
+# 1. Capture System
+#    - Handles webcam input via OpenCV
+#    - Runs continuous frame loop using QTimer
+#    - Stores captured images + video recording
+
+# 2. AI Effects System
+#    - Uses MediaPipe FaceMesh + CVZone HandTracking
+#    - Detects gestures (rock, peace, thumbs, hearts)
+#    - Applies real-time overlays and filters
+
+# 3. Photostrip Engine
+#    - Combines 4 captured images into a single strip
+#    - Applies selected filters and frame colors
+#    - Supports stickers via mouse interaction
+
+# 4. UI System (PyQt6)
+#    - Multi-page interface using QStackedWidget
+#    - Pages: Home, Mode Select, Camera, Customize, Print (init function in)
+
+# 5. Export System
+#    - Local HTTP server for file sharing
+#    - Generates QR code for download page
+#    - Handles printing via system lpr command
+
 #layout helper functions
 def vbox(margins=(0,0,0,0), spacing=0):
     layout = QVBoxLayout()
     layout.setContentsMargins(*margins)
     layout.setSpacing(spacing)
     return layout
-
 def hbox(margins=(0,0,0,0), spacing=0):
     layout = QHBoxLayout()
     layout.setContentsMargins(*margins)
@@ -46,7 +71,7 @@ class PrintThread(QThread):
 
     def run(self):
         subprocess.run(["lpr", self.filename]) #prints
-        time.sleep(8)
+        time.sleep(10) #gives time for video to finish looping and for users to scan the qr code
         self.done.emit() #sends signal
 
 #bg class to prevent lags/pauses when saving the video loop
@@ -271,10 +296,8 @@ class Window(QWidget):
            
         #CAMERA PAGE (countdown, camera feed, previews)
         cameraPage = QWidget()
-        cameraMainLayout = vbox((0,0,0,0),spacing=10)
-        cameraMainLayout.setContentsMargins(0, 0, 0, 0)
-        cameraMainLayout.setSpacing(10)
-        cameraPage.setLayout(cameraMainLayout)
+        window.cameraMainLayout = vbox((0,0,0,0),spacing=10)
+        cameraPage.setLayout(window.cameraMainLayout)
 
         # test filter button
         # window.testButton = QPushButton("Test Filter", cameraPage)
@@ -288,19 +311,19 @@ class Window(QWidget):
         window.pictureButton.setStyleSheet("""font-size: 18px; padding: 8px 36px; background-color: #fdbe15; color: #ffffff; border: none; border-radius: 0px;""")
         window.pictureButton.clicked.connect(window.takePicture)
         window.pictureButton.setHidden(True)
-        cameraMainLayout.addSpacing(10)
-        cameraMainLayout.addWidget(window.pictureButton, alignment = Qt.AlignmentFlag.AlignCenter)
+        window.cameraMainLayout.addSpacing(10)
+        window.cameraMainLayout.addWidget(window.pictureButton, alignment = Qt.AlignmentFlag.AlignCenter)
         
         #countdown label
         window.countdownLabel = QLabel("") 
         window.countdownLabel.setStyleSheet("""color: #000000; font-size: 30px; font-weight:380; padding: 10px;""")
-        cameraMainLayout.addWidget(window.countdownLabel, alignment = Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        window.cameraMainLayout.addWidget(window.countdownLabel, alignment = Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
   
         #image label
         window.imageLabel = QLabel() #widget to display camera feed and previews
         window.imageLabel.setStyleSheet("background-color: black; border-radius: 26px; border: 4px solid #febe15; padding: 8px;""")
         window.imageLabel.setFixedSize(867, 714)
-        cameraMainLayout.addWidget(window.imageLabel, alignment = Qt.AlignmentFlag.AlignCenter)
+        window.cameraMainLayout.addWidget(window.imageLabel, alignment = Qt.AlignmentFlag.AlignCenter)
 
         #video
         window.videoWriter = None 
@@ -339,7 +362,7 @@ class Window(QWidget):
         frameLabel.setStyleSheet("""color: #000000; font-size: 20px; font-weight: 400;""")
         rightLayout.addWidget(frameLabel)
 
-        frameRow = vbox((0,0,0,0), spacing=12)
+        frameRow = hbox((0,0,0,0), spacing=12)
         framecolors = [
             ("white",    "#ffffff", "black",  (255,255,255)),
             ("black",    "#000000", "white",  (0,0,0)),
@@ -416,6 +439,11 @@ class Window(QWidget):
         printLayout = vbox()
         printPage.setLayout(printLayout)
 
+        window.headerPrint= QLabel("ASIJ") 
+        window.headerPrint.setStyleSheet("""background-color: #000000; color: #febe15; font-size: 26px; font-weight: bold; padding: 4px 10px;""")
+        window.headerPrint.setFixedHeight(60)
+        printLayout.addWidget(window.headerPrint)
+
         printLayout.addSpacing(100)
 
         window.mascotLabel = QLabel()
@@ -429,8 +457,8 @@ class Window(QWidget):
         printLayout.addSpacing(20)
 
         #asij label text
-        asijLabel = QLabel("ASIJ Photobooth")
-        asijLabel.setStyleSheet("color: #febe15; font-size: 75px; font-weight: bold;")
+        asijLabel = QLabel("PHOTOBOOTH")
+        asijLabel.setStyleSheet("""color: #000000; font-size: 96px; font-weight: 900;""")
         asijLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         printLayout.addWidget(asijLabel)
 
@@ -457,6 +485,12 @@ class Window(QWidget):
         window.qrLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         printLayout.addWidget(window.qrLabel)
 
+        #download instructions
+        downloadText = QLabel("use SnapChat to open QR Code")
+        downloadText.setStyleSheet("color: #000000; font-size: 12px;")
+        downloadText.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        printLayout.addWidget(downloadText)
+
         #STACK
         window.stack.addWidget(homePage) #0
         window.stack.addWidget(modePage) #1
@@ -464,6 +498,7 @@ class Window(QWidget):
         window.stack.addWidget(customPage) #3
         window.stack.addWidget(printPage) #4
 
+#CAPTURE SYSTEM
     def clicked(window):
         """
          Triggered when the Start button is pressed.
@@ -512,6 +547,7 @@ class Window(QWidget):
          
          Postconditions:
          - Displays the current camera frame in the imageLabel widget.
+         - selects the mode
         """
 
         if window.video is None:
@@ -523,7 +559,6 @@ class Window(QWidget):
             return
         
         window.frame = cv2.flip(window.frame,1)
-        window.frame = window.enhanceFace(window.frame)
 
         if window.mode == "regular":
             pass
@@ -544,6 +579,7 @@ class Window(QWidget):
         window.imageLabel.setPixmap(window.feed.scaled(window.imageLabel.width(), window.imageLabel.height(), Qt.AspectRatioMode.KeepAspectRatio))
    
     def takePicture(window):
+        #Function: takes the picture, iterates until captureIndex is 4, starts video
         window.captureIndex = 0 #reset capture index for new photostrip
         window.recordingFile = f"recording_{time.strftime('%Y%m%d%H%M%S')}.mp4"
         window.videoWriter = imageio.get_writer(window.recordingFile, fps=45)
@@ -639,11 +675,12 @@ class Window(QWidget):
         window.startCountdown()
 
     def selectMode(window, mode):
+        #Function: selects mode (regular, brightness, filters), starts camera and switches the page to the cameraPage
         window.mode = mode
         window.stack.setCurrentIndex(2)
         window.startCamera()
 
-#facial enhancer/ live feed filters
+#AI/Gesture + Effects System
     def liveFilter(window, frame):
         #two rock signs --> sunglasses
         #two mini heart signs --> anime sparkles
@@ -652,6 +689,26 @@ class Window(QWidget):
 
         #sunglasses + horse: facial overlays
         #confettit + sparkles: opencv drawings 
+
+        """
+        Applies real-time gesture-based AR filters using face mesh and hand tracking.
+
+        Function: Detects facial landmarks and nearby hand gestures, then applies corresponding visual effects (sunglasses, sparkles, confetti, horse overlay) onto the video frame.
+
+        Preconditions:
+        - Face mesh and hand tracking models must be initialized.
+        - Overlay assets (sunglasses, blush, mustang images) must be loaded.
+        - Frame must be valid BGR image.
+
+        Postconditions:
+        - Detects gestures (rock, peace, thumbs up, heart signs)
+        - Applies corresponding AR effects:
+            - Rock → sunglasses overlay
+            - Peace → horse filter
+            - Hearts → sparkle mode
+            - Thumbs up → confetti mode (timed effect)
+        - Maintains and decrements active effect timers
+        """
 
         hands, frame = window.hd.findHands(frame, draw=False)
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -701,6 +758,7 @@ class Window(QWidget):
         return frame
 
     def detectHearts(window, hands, frame):
+        #Function: Analyzes finger positions and geometric distance between thumb and index finger to determine a “mini heart” gesture on each hand.
         if len(hands) < 2:
             return False
         
@@ -724,11 +782,8 @@ class Window(QWidget):
 
         return heartCount == 2
 
-    def enhanceFace(window, frame):
-        
-        return frame
-
     def overlay(window, frame, overlay, x, y, width, height):
+        #Function: Resizes and blends an overlay image onto a specified region of the frame, supporting alpha transparency if available.
         overlay = cv2.resize(overlay, (width, height))
 
         h, w, c = frame.shape
@@ -747,6 +802,17 @@ class Window(QWidget):
         return frame
     
     def sunglass(window, frame, face):
+        """
+        Function: Uses eye and nose landmarks to position and scale a sunglasses image over the face.
+
+        Inputs:
+        - window: main application object containing overlay assets
+        - frame: current video frame (BGR image)
+        - face: detected face mesh landmarks
+
+        Outputs:
+        - frame: modified frame with sunglasses overlay
+        """
         h,w,c = frame.shape
         
         leftEye = face.landmark[33]
@@ -770,6 +836,17 @@ class Window(QWidget):
         return frame
     
     def sparkle(window, frame, face):
+        """
+        Function: Enhances facial features by enlarging eyes, adding blush overlays, and drawing animated star sparkles.
+
+        Inputs:
+        - window: main application object containing overlay assets and drawing utilities
+        - frame: current video frame
+        - face: detected face mesh landmarks
+
+        Output:
+        - frame: modified frame with "sparkle" (enlargened eyes, blush, star sparkles in the eyes) effect
+        """
         h,w,c = frame.shape
 
         leftEyeOut = face.landmark[33]
@@ -808,6 +885,19 @@ class Window(QWidget):
         return frame
 
     def enlargeEye(window, frame, eyeX, eyeY, size):
+        """
+        Applies localized zoom effect to simulate enlarged eyes.
+
+        Function: Extracts a region around the eye, enlarges it, blends it back into the original frame using a soft elliptical mask.   
+
+        Preconditions:
+        - Eye coordinates must be within frame bounds.
+        - Frame must be valid image array.
+
+        Postconditions:
+        - Region around eye is magnified and blended back smoothly
+
+        """
         h, w = frame.shape[:2]
         size = int(size)
         ew = eh = size
@@ -844,12 +934,14 @@ class Window(QWidget):
         return frame
     
     def drawStar(window, frame, x, y, size, color):
+        # Function: Uses intersecting lines to draw a star at a given position.
         cv2.line(frame, (x, y - size), (x, y + size), color, 2)
         cv2.line(frame, (x - size, y), (x + size, y), color, 2)
         cv2.line(frame, (x - size//2, y - size//2), (x + size//2, y + size//2), color, 2)
         cv2.line(frame, (x - size//2, y + size//2), (x + size//2, y - size//2), color, 2)
 
     def makeConfetti(window):
+        # Function: Generates a list of confetti particles with random positions, velocities, sizes, and colors.
         colors = [(0,0,0), (255,255,255), (21,190,253)]
         window.confettiPieces = []
 
@@ -866,6 +958,16 @@ class Window(QWidget):
             window.confettiPieces.append(piece)
 
     def confetti(window, frame):
+        """
+        Function: Draws and updates falling confetti particles with random motion and resets off-screen particles.
+
+        Inputs:
+        - window: main application object containing confetti state
+        -frame: current video frame
+
+        Outputs:
+        -frame: modified frame with confetti animation
+        """
         h,w,c = frame.shape
 
         for piece in window.confettiPieces:
@@ -891,6 +993,17 @@ class Window(QWidget):
         return frame
    
     def horse(window, frame, face):
+        """
+        Function: Positions stylized horse ears and nose on a face using landmark-based scaling and alignment.
+
+        Inputs:
+        - window: main application object containing overlay assets
+        - frame: current video frame
+        - face: detected face mesh landmarks
+
+        Outputs:
+        - frame: modified frame with horse filter applied
+        """
         h,w,c = frame.shape
         leftEye = face.landmark[33]
         rightEye = face.landmark[263]
@@ -922,6 +1035,7 @@ class Window(QWidget):
         return frame
 
     def handX(window, hand):
+        # Function: Finds up to two closest hands to a face based on horizontal distance from face center.
         total = 0
         for point in hand['lmList']:
             total += point[0]
@@ -929,6 +1043,7 @@ class Window(QWidget):
         return (int)(total/len(hand['lmList']))
     
     def getFaceCenterX(window, face, frameWidth):
+        # Function: Uses eye landmarks to estimate the midpoint of the face along the X-axis.
         leftEye = face.landmark[33]
         rightEye = face.landmark[263]
 
@@ -938,6 +1053,20 @@ class Window(QWidget):
         return (int)((leftX + rightX) // 2)
     
     def closestHands(window, face, hands, usedHands, frameWidth):
+        """
+        Finds the closest hands relative to a detected face.
+
+        Function: Compares horizontal distance between each detected hand and the face center, selecting up to two closest hands within a threshold range.
+
+        Preconditions:
+        - Face and hand detection must be active and synchronized.
+        - Each hand must have valid landmark data.
+
+        Postconditions:
+        - Filters out already-used hands
+        - Returns at most two hands within a dynamic distance threshold based on face width
+        """
+
         faceX = window.getFaceCenterX(face, frameWidth)
 
         leftEye = face.landmark[33]
@@ -973,6 +1102,17 @@ class Window(QWidget):
         return faceHands, handIndexes
     
     def sameGesture(window, hands, gesture):
+        #Function: Compares finger states of both hands against a target gesture pattern.
+        """
+        Inputs:
+        window: main application object (contains hand tracking module)
+        hands: list of detected hands (must contain at least 2)
+        gesture: target finger configuration (list of binary values representing fingers up/down)
+
+        Outputs:
+        True if both hands match the gesture
+        False otherwise
+        """
         if len(hands) < 2:
             return False
         
@@ -981,8 +1121,18 @@ class Window(QWidget):
 
         return fingers1 == gesture and fingers2 == gesture
 
-#gesture triggered brightness adjustment
     def adjustBrightness(window, frame):
+       """
+        Adjusts brightness of the input video frame.
+
+        Function: Modifies pixel intensity values to increase or decrease overall brightness of the camera feed.
+        Preconditions:
+        - Frame must be valid OpenCV image array.
+        - Any brightness parameters (if used) must be defined in window state.
+
+        Postconditions:
+        - Returns modified frame with adjusted brightness applied
+        """
 
         #LEFT HAND: 
         #fist --> enables adjusting brightness
@@ -1031,7 +1181,8 @@ class Window(QWidget):
     
         return frame
 
-#frame 
+#PHOTOSTRIP GENERATION + CUSTOMIZATION
+#frame
     def showFrame(window, color):
         """
         Updates the frame color for the photostrip.
@@ -1197,6 +1348,7 @@ class Window(QWidget):
         if window.videoWriter is not None:
             window.videoWriter.close()
             window.videoWriter = None
+        window.videoReady = True
 
         window.videoLoopThread = VideoLoopThread(window.recordingFile)
         window.videoLoopThread.start()
@@ -1249,6 +1401,8 @@ class Window(QWidget):
 
          Function: Converts the generated photostrip image into a format suitable for display in the PyQt interface and updates the imageLabel widget to show the photostrip preview to the user. This function is called after the photostrip is generated and saved to disk, allowing the user to see the final result of their photobooth session before everything is reset for the next session.
          """
+        if not getattr(window, "videoReady", False):
+            return
         timestamp = time.strftime("%Y%m%d%H%M%S")
         filename = f"photostrip_{timestamp}.png"
 
@@ -1282,6 +1436,7 @@ class Window(QWidget):
         window.printThread.start()
 
     def animateMascot(window):
+        #Function: animates the mascot that appears on the printing page
         mascots = ["mascot.png", "mascot2.png"]
         window.mascotFrame = (window.mascotFrame + 1) % 2
         pixmap = QPixmap(mascots[window.mascotFrame])
@@ -1289,6 +1444,7 @@ class Window(QWidget):
         window.mascotLabel.setPixmap(scaledMascot)
 
     def animateDots(window):
+        #Function: animates the dots on the printing page
         dots = ["●", "● ●", "● ● ●"]
         window.dotsCount = (window.dotsCount + 1) % 3
         window.dotsLabel.setText(dots[window.dotsCount])
@@ -1318,26 +1474,39 @@ class Window(QWidget):
         window.frameColor = (255,255,255)
         window.currentSticker = None
 
-    def testFilter(window):
-        if window.frame is None:
-         return
+    # def testFilter(window):
+    #     if window.frame is None:
+    #      return
     
-        window.timer.stop()
-        filtered = window.applyFilter(window.frame.copy())
+    #     window.timer.stop()
+    #     filtered = window.applyFilter(window.frame.copy())
 
-        height, width, channels = filtered.shape
-        image = QImage(filtered.data, width, height, QImage.Format.Format_BGR888)
+    #     height, width, channels = filtered.shape
+    #     image = QImage(filtered.data, width, height, QImage.Format.Format_BGR888)
 
-        window.imageLabel.setPixmap(
-            QPixmap.fromImage(image).scaled(
-                window.imageLabel.width(),
-                window.imageLabel.height(),
-                Qt.AspectRatioMode.KeepAspectRatio
-            )
-        )
+    #     window.imageLabel.setPixmap(
+    #         QPixmap.fromImage(image).scaled(
+    #             window.imageLabel.width(),
+    #             window.imageLabel.height(),
+    #             Qt.AspectRatioMode.KeepAspectRatio
+    #         )
+    #     )
 
-#for QR code generation
+#EXPORT SYSTEM
     def startFileServer(window):
+        #Function: Initializes and launches a background HTTP server that hosts project output files (images, videos, HTML) so they can be accessed from a browser via local network.
+        """
+        Preconditions:
+        - Server must not already be running.
+        - Required files must exist in accessible directory.
+
+        Postconditions:
+        - A local HTTP server is started on port 8080
+        - Server runs on a separate daemon thread
+        - window.httpServer is initialized and reusable
+        - window.serverStarted is set to prevent duplicate servers
+        """
+        
         if hasattr(window,'serverStarted'):
             return
         window.serverStarted = True
@@ -1348,7 +1517,20 @@ class Window(QWidget):
         thread.start()
 
     def downloadPage(window, photoFile, videoFile):
-        print("video file:", window.recordingFile, os.path.exists(window.recordingFile))
+        #Function: Builds a local HTML page that displays the captured photo and video, writes it to disk, and generates a QR code linking to the page for easy mobile access.
+        """
+        Preconditions:
+        - Local HTTP server must already be running.
+        - photoFile and videoFile must exist in server directory.
+        - Device must be connected to same local network.
+
+        Postconditions:
+        - download.html is created and served via local server
+        - QR code image (qr.png) is generated
+        - QR code is displayed in GUI (window.qrLabel updated)
+        - Users can access media via scanned QR code link
+        """
+
         ip = subprocess.check_output("ipconfig getifaddr en0", shell = True).decode().strip()
         base = f"http://{ip}:8080"
         html=f"""
